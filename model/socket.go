@@ -6,3 +6,5 @@ type SocketLogin struct {
 	Status int
 	Socket *websocket.Conn
 }
+
+var Tokens = make(map[string]SocketLogin)
