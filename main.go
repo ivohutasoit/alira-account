@@ -24,19 +24,22 @@ func main() {
 	router.LoadHTMLGlob("templates/*.tmpl.html")
 	router.Static("/static", "static")
 
-	router.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.tmpl.html", nil)
-	})
-
-	account := router.Group("/api/alpha/account")
+	web := router.Group("/") 
 	{
-		account.GET("/register", controller.RegisterHandler)
+		web.GET("", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "index.tmpl.html", nil)
+		})
+		web.GET("/login", controller.LoginPageHandler)
 	}
 
-	auth := router.Group("/api/alpha/auth") 
+	api := router.Group("/api/alpha")
 	{
-		auth.GET("/qrcode/:code", controller.GenerateImageQrcodeHandler)
-		auth.POST("/socket/:code", controller.StartSocketHandler)
+		apiauth := api.Group("/auth")
+		{
+			apiauth.GET("/qrcode/:code", controller.GenerateImageQrcodeHandler)
+			apiauth.GET("/socket/:code", controller.StartSocketHandler)
+			apiauth.GET("/verify/:code", controller.VerifyQrcodeHandler)
+		}
 	}
 
 	router.Run(":" + port)
