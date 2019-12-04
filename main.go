@@ -7,6 +7,7 @@ import (
 
 	"github.com/ivohutasoit/alira-account/controller"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/heroku/x/hmetrics/onload"
 )
@@ -21,6 +22,7 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Logger())
+	router.Use(cors.Default())
 	router.LoadHTMLGlob("templates/*.tmpl.html")
 	router.Static("/static", "static")
 
@@ -29,7 +31,7 @@ func main() {
 		web.GET("", func(c *gin.Context) {
 			c.HTML(http.StatusOK, "index.tmpl.html", nil)
 		})
-		web.GET("/login", controller.LoginPageHandler)
+		web.GET("/login/*url", controller.LoginPageHandler)
 	}
 
 	api := router.Group("/api/alpha")
