@@ -75,8 +75,8 @@ func VerifyQrcodeHandler(c *gin.Context) {
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
 	}
-	if  model.Tokens[decrypted].Socket != nil {
-		socket :=  model.Tokens[decrypted].Socket
+	if model.Tokens[decrypted].Socket != nil {
+		socket := model.Tokens[decrypted].Socket
 
 		defer socket.Close()
 		err := socket.WriteMessage(websocket.TextMessage, []byte("Token is valid"))
