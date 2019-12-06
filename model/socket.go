@@ -2,9 +2,10 @@ package model
 
 import "github.com/gorilla/websocket"
 
-type SocketLogin struct {
-	Status int
-	Socket *websocket.Conn
+type LoginSocket struct {
+	Callback string
+	Status   int
+	Socket   *websocket.Conn
 }
 
-var Tokens = make(map[string]SocketLogin)
+var Sockets = make(map[string]LoginSocket)
