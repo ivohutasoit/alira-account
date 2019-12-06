@@ -15,7 +15,7 @@
         </style>
     </head>
     <body>
-        <form class="form-login" method="POST" action="/login">
+        <form class="form-login" method="POST" action="/login?callback={{.callback}}">
             <h1>Log In to Alira</h1>
             <div>
                 <input type="text" minlength="3" name="userid" required>
@@ -46,6 +46,7 @@
                 socket.onmessage = function(e) {
                     console.log('Receive message: ' + e.data);
                     document.getElementById('message').innerHTML = e.data;
+                    window.location = e.data;
                 }
             }
         </script>
