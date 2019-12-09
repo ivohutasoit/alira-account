@@ -3,7 +3,7 @@ package model
 import "github.com/gorilla/websocket"
 
 type LoginSocket struct {
-	Callback string
+	Redirect string
 	Status   int
 	Socket   *websocket.Conn
 }
