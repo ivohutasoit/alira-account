@@ -16,31 +16,31 @@ import (
 )
 
 func LoginPageHandler(c *gin.Context) {
-	callback := c.Query("callback")
+	redirect := c.Query("redirect")
 
 	qrcode := &service.QrcodeService{}
 	code := qrcode.Generate()
-
+	
 	encrypted, err := util.Encrypt(code, os.Getenv("SECRET_KEY"))
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
 	}
 	model.Sockets[code] = model.LoginSocket{
-		Callback: callback,
+		Redirect: redirect,
 		Status:   1,
 	}
-
+	
 	if c.Request.Method == http.MethodGet {
 		c.HTML(http.StatusOK, "login.tmpl.html", gin.H{
 			"code":     encrypted,
-			"callback": callback,
+			"redirect": redirect,
 		})
 	} else {
 		token, err := service.Login(c.PostForm("userid"), c.PostForm("password"))
 		if err != nil {
 			c.HTML(http.StatusUnauthorized, "login.tmpl.html", gin.H{
 				"code":     encrypted,
-				"callback": callback,
+				"redirect": redirect,
 				"error":    err.Error(),
 			})
 			return
@@ -50,17 +50,36 @@ func LoginPageHandler(c *gin.Context) {
 		session.Set("token", token)
 		session.Save()
 
-		if callback != "" {
-			uri, err := util.Decrypt(callback, os.Getenv("SECRET_KEY"))
+		if redirect != "" {
+			uri, err := util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
 			if err != nil {
 				fmt.Printf("Error: %s", err.Error())
 			}
-			c.Redirect(http.StatusMovedPermanently, uri)
+			c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
 			return
 		}
 
 		c.HTML(http.StatusOK, "index.tmpl.html", nil)
 	}
+}
+
+func LogoutPageHandler(c *gin.Context) {
+	redirect := c.Query("redirect")
+	session := sessions.Default(c)
+	session.Clear()
+	session.Save()
+	
+	if redirect != "" {
+		uri, err := util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
+		if err != nil {
+			fmt.Printf("Error: %s", err.Error())
+			return
+		}
+		c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
+		return
+	}
+
+	c.HTML(http.StatusOK, "index.tmpl.html", nil)
 }
 
 var wsupgrader = &websocket.Upgrader{
@@ -99,7 +118,9 @@ func StartSocketHandler(c *gin.Context) {
 			return
 		}
 	}
+	loginSocket := model.Sockets[decrypted]
 	model.Sockets[decrypted] = model.LoginSocket{
+		Redirect: loginSocket.Redirect,
 		Socket: socket,
 	}
 	for {
@@ -122,24 +143,29 @@ func VerifyQrcodeHandler(c *gin.Context) {
 	decrypted, err := util.Decrypt(code, os.Getenv("SECRET_KEY"))
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
+		return
 	}
+
 	if model.Sockets[decrypted].Socket != nil {
 		loginSocket := model.Sockets[decrypted]
 		socket := loginSocket.Socket
 
 		defer socket.Close()
-		if loginSocket.Callback != "" {
-			uri, err := util.Decrypt(loginSocket.Callback, os.Getenv("SECRET_KEY"))
+		if loginSocket.Redirect != "" {
+			uri, err := util.Decrypt(loginSocket.Redirect, os.Getenv("SECRET_KEY"))
+			if err != nil {
+				fmt.Println("Error: " + err.Error())
+				return
+			}
+			err = socket.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("%s", uri)))
 			if err != nil {
 				fmt.Printf("Error: %s", err.Error())
-			}
-			err = socket.WriteMessage(websocket.TextMessage, []byte(uri))
-			if err != nil {
 				return
 			}
 		} else {
-			err = socket.WriteMessage(websocket.TextMessage, []byte("http://localhost:9000"))
+			err = socket.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("http://%s", c.Request.Host)))
 			if err != nil {
+				fmt.Printf("Error: %s", err.Error())
 				return
 			}
 		}
@@ -148,6 +174,11 @@ func VerifyQrcodeHandler(c *gin.Context) {
 			Status: 0,
 			Socket: socket,
 		}
+
+		token, _ := service.Login("ivohutasoit", "hutasoit09")
+		session := sessions.Default(c)
+		session.Set("token", token)
+		session.Save()
 
 		c.JSON(http.StatusOK, gin.H{
 			"status": "OK",
