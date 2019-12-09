@@ -42,8 +42,12 @@ func main() {
 		web.GET("", func(c *gin.Context) {
 			c.HTML(http.StatusOK, "index.tmpl.html", nil)
 		})
-		web.GET("/login", controller.LoginPageHandler)
-		web.POST("login", controller.LoginPageHandler)
+		webauth := web.Group("auth")
+		{
+			webauth.GET("/login", controller.LoginPageHandler)
+			webauth.POST("/login", controller.LoginPageHandler)
+			webauth.GET("/logout", controller.LogoutPageHandler)
+		}
 	}
 
 	api := router.Group("/api/alpha")
