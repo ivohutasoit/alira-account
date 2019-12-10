@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/controller"
 	"github.com/joho/godotenv"
 
@@ -37,12 +38,12 @@ func main() {
 	router.LoadHTMLGlob("templates/*.tmpl.html")
 	router.Static("/static", "static")
 
-	web := router.Group("/")
+	web := router.Group("")
 	{
-		web.GET("", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "index.tmpl.html", nil)
+		web.GET("/", func(c *gin.Context) {
+			c.HTML(http.StatusOK, constant.IndexPage, nil)
 		})
-		webauth := web.Group("auth")
+		webauth := web.Group("/auth")
 		{
 			webauth.GET("/login", controller.LoginPageHandler)
 			webauth.POST("/login", controller.LoginPageHandler)
@@ -56,7 +57,7 @@ func main() {
 		{
 			apiauth.GET("/qrcode/:code", controller.GenerateImageQrcodeHandler)
 			apiauth.GET("/socket/:code", controller.StartSocketHandler)
-			apiauth.GET("/verify/:code", controller.VerifyQrcodeHandler)
+			apiauth.POST("/verify", controller.VerifyQrcodeHandler)
 		}
 	}
 
