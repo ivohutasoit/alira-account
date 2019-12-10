@@ -9,7 +9,10 @@ import (
 	"github.com/ivohutasoit/alira/model/domain"
 )
 
-func Login(userid, password string) (string, error) {
+type AuthService struct {
+}
+
+func (s *AuthService) Login(userid, password string) (string, error) {
 	if userid != "ivohutasoit" {
 		return "", errors.New("invalid user or password")
 	}
@@ -23,10 +26,10 @@ func Login(userid, password string) (string, error) {
 		UserID: userid,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expiresAt.Unix(),
-			Issuer:    "Softh Axi Inc.",
+			Issuer:    os.Getenv("ISSUER"),
 		},
 	}
-	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), userToken)
+	token := jwt.NewWithClaims(jwt.GetSigningMethod(os.Getenv("HASHING_METHOD")), userToken)
 	tokenString, _ := token.SignedString([]byte(os.Getenv("SECRET_KEY")))
 
 	return tokenString, nil
