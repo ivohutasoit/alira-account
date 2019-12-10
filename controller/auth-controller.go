@@ -8,10 +8,12 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/model"
 	"github.com/ivohutasoit/alira-account/service"
 	"github.com/ivohutasoit/alira/common"
 	"github.com/ivohutasoit/alira/util"
+	ua "github.com/mileusna/useragent"
 	"github.com/skip2/go-qrcode"
 )
 
@@ -20,7 +22,7 @@ func LoginPageHandler(c *gin.Context) {
 
 	qrcode := &service.QrcodeService{}
 	code := qrcode.Generate()
-	
+
 	encrypted, err := util.Encrypt(code, os.Getenv("SECRET_KEY"))
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
@@ -29,14 +31,15 @@ func LoginPageHandler(c *gin.Context) {
 		Redirect: redirect,
 		Status:   1,
 	}
-	
+
 	if c.Request.Method == http.MethodGet {
-		c.HTML(http.StatusOK, "login.tmpl.html", gin.H{
+		c.HTML(http.StatusOK, constant.LoginPage, gin.H{
 			"code":     encrypted,
 			"redirect": redirect,
 		})
 	} else {
-		token, err := service.Login(c.PostForm("userid"), c.PostForm("password"))
+		auth := &service.AuthService{}
+		token, err := auth.Login(c.PostForm("userid"), c.PostForm("password"))
 		if err != nil {
 			c.HTML(http.StatusUnauthorized, "login.tmpl.html", gin.H{
 				"code":     encrypted,
@@ -59,7 +62,7 @@ func LoginPageHandler(c *gin.Context) {
 			return
 		}
 
-		c.HTML(http.StatusOK, "index.tmpl.html", nil)
+		c.HTML(http.StatusOK, constant.IndexPage, nil)
 	}
 }
 
@@ -68,7 +71,7 @@ func LogoutPageHandler(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Clear()
 	session.Save()
-	
+
 	if redirect != "" {
 		uri, err := util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
 		if err != nil {
@@ -79,7 +82,7 @@ func LogoutPageHandler(c *gin.Context) {
 		return
 	}
 
-	c.HTML(http.StatusOK, "index.tmpl.html", nil)
+	c.HTML(http.StatusOK, constant.IndexPage, nil)
 }
 
 var wsupgrader = &websocket.Upgrader{
@@ -100,6 +103,7 @@ func GenerateImageQrcodeHandler(c *gin.Context) {
 }
 
 func StartSocketHandler(c *gin.Context) {
+	userAgent := c.Request.Header["User-Agent"][0]
 	code := c.Param("code")
 	decrypted, err := util.Decrypt(code, os.Getenv("SECRET_KEY"))
 	if err != nil {
@@ -120,8 +124,9 @@ func StartSocketHandler(c *gin.Context) {
 	}
 	loginSocket := model.Sockets[decrypted]
 	model.Sockets[decrypted] = model.LoginSocket{
-		Redirect: loginSocket.Redirect,
-		Socket: socket,
+		Redirect:  loginSocket.Redirect,
+		UserAgent: userAgent,
+		Socket:    socket,
 	}
 	for {
 		mt, msg, err := socket.ReadMessage()
@@ -139,7 +144,19 @@ func StartSocketHandler(c *gin.Context) {
 }
 
 func VerifyQrcodeHandler(c *gin.Context) {
-	code := c.Param("code")
+	userAgent := ua.Parse(c.Request.Header["User-Agent"][0])
+
+	if !userAgent.Mobile {
+		c.Writer.Header().Set("Content-Type", "application/json")
+		c.JSON(http.StatusNotAcceptable, gin.H{
+			"code":   406,
+			"status": "Not Acceptable",
+			"error":  "qrcode log in must be used authenticated mobile app",
+		})
+		return
+	}
+
+	code := c.PostForm("code")
 	decrypted, err := util.Decrypt(code, os.Getenv("SECRET_KEY"))
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
@@ -175,7 +192,8 @@ func VerifyQrcodeHandler(c *gin.Context) {
 			Socket: socket,
 		}
 
-		token, _ := service.Login("ivohutasoit", "hutasoit09")
+		auth := &service.AuthService{}
+		token, _ := auth.Login("ivohutasoit", "hutasoit09")
 		session := sessions.Default(c)
 		session.Set("token", token)
 		session.Save()
