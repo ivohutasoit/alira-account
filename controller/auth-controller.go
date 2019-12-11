@@ -50,7 +50,8 @@ func LoginPageHandler(c *gin.Context) {
 		}
 
 		session := sessions.Default(c)
-		session.Set("token", token)
+		session.Set("access_token", token["access_token"])
+		session.Set("refresh_token", token["refresh_token"])
 		session.Save()
 
 		if redirect != "" {
@@ -195,11 +196,14 @@ func VerifyQrcodeHandler(c *gin.Context) {
 		auth := &service.AuthService{}
 		token, _ := auth.Login("ivohutasoit", "hutasoit09")
 		session := sessions.Default(c)
-		session.Set("token", token)
+		session.Set("access_token", token["access_token"])
+		session.Set("refresh_token", token["refresh_token"])
 		session.Save()
 
 		c.JSON(http.StatusOK, gin.H{
-			"status": "OK",
+			"code":    200,
+			"status":  "OK",
+			"message": "token authentication successful",
 		})
 	}
 }
