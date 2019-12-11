@@ -43,7 +43,7 @@ func (s *AuthService) Login(args ...interface{}) (map[interface{}]interface{}, e
 			return nil, errors.New("invalid user or password")
 		}
 
-	} else {
+	} else if authType == "Refresh" {
 		if len(args) < 2 {
 			return nil, errors.New("not enough parameters")
 		}
