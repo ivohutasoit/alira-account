@@ -39,7 +39,7 @@ func LoginPageHandler(c *gin.Context) {
 		})
 	} else {
 		auth := &service.AuthService{}
-		token, err := auth.Login(c.PostForm("userid"), c.PostForm("password"))
+		token, err := auth.Login("Basic", c.PostForm("userid"), c.PostForm("password"))
 		if err != nil {
 			c.HTML(http.StatusUnauthorized, "login.tmpl.html", gin.H{
 				"code":     encrypted,
@@ -64,6 +64,23 @@ func LoginPageHandler(c *gin.Context) {
 		}
 
 		c.HTML(http.StatusOK, constant.IndexPage, nil)
+	}
+}
+
+func RefreshTokenHandler(c *gin.Context) {
+	currentPath := c.Request.URL.Path
+
+	if currentPath == "/api/alpha/auth/refresh" {
+		c.Header("Content-Type", "application/json")
+		c.JSON(http.StatusOK, gin.H{
+			"code":   200,
+			"status": "OK",
+			"data": map[interface{}]interface{}{
+				"access_token":  "",
+				"refresh_token": "",
+			},
+		})
+		return
 	}
 }
 
@@ -194,12 +211,13 @@ func VerifyQrcodeHandler(c *gin.Context) {
 		}
 
 		auth := &service.AuthService{}
-		token, _ := auth.Login("ivohutasoit", "hutasoit09")
+		token, _ := auth.Login("Basic", "ivohutasoit", "hutasoit09")
 		session := sessions.Default(c)
 		session.Set("access_token", token["access_token"])
 		session.Set("refresh_token", token["refresh_token"])
 		session.Save()
 
+		c.Header("Content-Type", "application/json")
 		c.JSON(http.StatusOK, gin.H{
 			"code":    200,
 			"status":  "OK",
