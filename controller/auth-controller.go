@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -17,7 +18,8 @@ import (
 	"github.com/skip2/go-qrcode"
 )
 
-func LoginPageHandler(c *gin.Context) {
+// LoginHandler manages login request to show page, form action and api
+func LoginHandler(c *gin.Context) {
 	redirect := c.Query("redirect")
 
 	qrcode := &service.QrcodeService{}
@@ -38,13 +40,53 @@ func LoginPageHandler(c *gin.Context) {
 			"redirect": redirect,
 		})
 	} else {
+		type Login struct {
+			UserID   string `form:"userid" json:"userid" xml:"userid"  binding:"required"`
+			Password string `form:"password" json:"password" xml:"password" binding:"required"`
+		}
+		var login Login
+		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+			if err := c.ShouldBindJSON(&login); err != nil {
+				c.Header("Content-Type", "application/json")
+				c.JSON(http.StatusBadRequest, gin.H{
+					"code":   400,
+					"status": "Bad Request",
+					"error":  err.Error(),
+				})
+				return
+			}
+		} else {
+			if err := c.ShouldBind(&login); err != nil {
+				c.HTML(http.StatusUnauthorized, constant.IndexPage, gin.H{
+					"code":     encrypted,
+					"redirect": redirect,
+					"error":    err.Error(),
+				})
+				return
+			}
+		}
+
+		fmt.Println(c.PostForm("userid"))
 		auth := &service.AuthService{}
-		token, err := auth.Login("Basic", c.PostForm("userid"), c.PostForm("password"))
+		token, err := auth.Login("Basic", login.UserID, login.Password)
 		if err != nil {
-			c.HTML(http.StatusUnauthorized, "login.tmpl.html", gin.H{
+			c.HTML(http.StatusBadRequest, constant.IndexPage, gin.H{
 				"code":     encrypted,
 				"redirect": redirect,
 				"error":    err.Error(),
+			})
+			return
+		}
+
+		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusOK, gin.H{
+				"code":   200,
+				"status": "OK",
+				"data": map[string]string{
+					"access_token":  token["access_token"].(string),
+					"refresh_token": token["refresh_token"].(string),
+				},
 			})
 			return
 		}
@@ -62,26 +104,49 @@ func LoginPageHandler(c *gin.Context) {
 			c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
 			return
 		}
-
 		c.HTML(http.StatusOK, constant.IndexPage, nil)
 	}
 }
 
 func RefreshTokenHandler(c *gin.Context) {
+	redirect := c.Query("redirect")
 	currentPath := c.Request.URL.Path
 
-	if currentPath == "/api/alpha/auth/refresh" {
+	userid := c.MustGet("userid")
+
+	auth := &service.AuthService{}
+	token, err := auth.Login("Refresh", userid)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	if currentPath == fmt.Sprintf("%s%s", os.Getenv("API_URI"), "/auth/refresh") {
 		c.Header("Content-Type", "application/json")
 		c.JSON(http.StatusOK, gin.H{
 			"code":   200,
 			"status": "OK",
-			"data": map[interface{}]interface{}{
-				"access_token":  "",
-				"refresh_token": "",
+			"data": map[string]string{
+				"access_token":  token["access_token"].(string),
+				"refresh_token": token["refresh_token"].(string),
 			},
 		})
 		return
 	}
+
+	session := sessions.Default(c)
+	session.Set("access_token", token["access_token"])
+	session.Set("refresh_token", token["refresh_token"])
+	session.Save()
+
+	if redirect != "" {
+		uri, err := util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
+		if err != nil {
+			fmt.Printf("Error: %s", err.Error())
+		}
+		c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
+		return
+	}
+
+	c.HTML(http.StatusOK, constant.IndexPage, nil)
 }
 
 func LogoutPageHandler(c *gin.Context) {
