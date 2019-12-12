@@ -7,6 +7,7 @@ import (
 
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/controller"
+	"github.com/ivohutasoit/alira/middleware"
 	"github.com/ivohutasoit/alira/model"
 	"github.com/ivohutasoit/alira/model/domain"
 	"github.com/joho/godotenv"
@@ -52,18 +53,22 @@ func main() {
 		})
 		webauth := web.Group("/auth")
 		{
-			webauth.GET("/login", controller.LoginPageHandler)
-			webauth.POST("/login", controller.LoginPageHandler)
+			webauth.GET("/login", controller.LoginHandler)
+			webauth.POST("/login", controller.LoginHandler)
+			webauth.GET("/qrcode/:code", controller.GenerateImageQrcodeHandler)
+			webauth.GET("/socket/:code", controller.StartSocketHandler)
 			webauth.GET("/logout", controller.LogoutPageHandler)
 		}
 	}
+	web.GET("/mail/send", controller.SendMailHandler)
 
 	api := router.Group("/api/alpha")
+	api.Use(middleware.TokenHeaderRequired())
 	{
 		apiauth := api.Group("/auth")
 		{
-			apiauth.GET("/qrcode/:code", controller.GenerateImageQrcodeHandler)
-			apiauth.GET("/socket/:code", controller.StartSocketHandler)
+			apiauth.POST("/login", controller.LoginHandler)
+			apiauth.POST("/refresh", controller.RefreshTokenHandler)
 			apiauth.POST("/verify", controller.VerifyQrcodeHandler)
 		}
 	}
