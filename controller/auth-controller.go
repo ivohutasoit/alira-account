@@ -12,7 +12,7 @@ import (
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/model"
 	"github.com/ivohutasoit/alira-account/service"
-	"github.com/ivohutasoit/alira/common"
+	cstn "github.com/ivohutasoit/alira/constant"
 	"github.com/ivohutasoit/alira/util"
 	ua "github.com/mileusna/useragent"
 	"github.com/skip2/go-qrcode"
@@ -22,8 +22,7 @@ import (
 func LoginHandler(c *gin.Context) {
 	redirect := c.Query("redirect")
 
-	qrcode := &service.QrcodeService{}
-	code := qrcode.Generate()
+	code := util.GenerateQrcode(16)
 
 	encrypted, err := util.Encrypt(code, os.Getenv("SECRET_KEY"))
 	if err != nil {
@@ -169,8 +168,8 @@ func LogoutPageHandler(c *gin.Context) {
 }
 
 var wsupgrader = &websocket.Upgrader{
-	ReadBufferSize:  int(common.SocketBufferSize),
-	WriteBufferSize: int(common.SocketBufferSize),
+	ReadBufferSize:  int(cstn.SocketBufferSize),
+	WriteBufferSize: int(cstn.SocketBufferSize),
 }
 
 func GenerateImageQrcodeHandler(c *gin.Context) {
