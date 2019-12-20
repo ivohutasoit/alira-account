@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        {{template "header.tmpl.html"}}
+        <title>Alira Register Account</title>
+        <style>
+            .container-center {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                -moz-transform: translateX(-50%) translateY(-50%);
+                -webkit-transform: translateX(-50%) translateY(-50%);
+                transform: translateX(-50%) translateY(-50%);
+            }
+        </style>
+    </head>
+    <body >
+        <div class="container">
+            <div class="container-center">
+                <h1 class="h3 mb-3 font-weight-normal text-center">Welcome to <code>Alira</code></h1>
+                <form class="form-inline form-login" method="POST" action="/account/register">
+                    <div class="form-group mx-sm-3 mb-2">
+                        <label for="payload" class="sr-only">Password</label>
+                        <input type="text" class="form-control" id="payload" name="payload" placeholder="Email address" required>
+                    </div>
+                    <input type="hidden" name="using" value="email"/>
+                    <button type="submit" class="btn btn-primary mb-2">Register</button>
+                </form>
+            </div>
+            {{ if .error }}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <span>{{ .error }}</span>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            {{ end }}
+        </div>
+        {{template "footer.tmpl.html"}}
+    </body>
+</html>
