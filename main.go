@@ -20,8 +20,10 @@ import (
 )
 
 func init() {
-	model.GetDatabase().Debug().AutoMigrate(&domain.User{})
-	model.GetDatabase().Debug().AutoMigrate(&domain.UserProfile{})
+	model.GetDatabase().Debug().AutoMigrate(&domain.User{},
+		&domain.Profile{},
+		&domain.Subscribe{},
+		&domain.Token{})
 }
 
 func main() {
@@ -43,13 +45,15 @@ func main() {
 
 	store := cookie.NewStore([]byte(os.Getenv("SECRET_KEY")))
 	router.Use(sessions.Sessions("ALIRASESSION", store))
-	router.LoadHTMLGlob("templates/*.tmpl.html")
+	router.LoadHTMLGlob("views/*/*.tmpl.html")
 	router.Static("/static", "static")
 
 	web := router.Group("")
 	{
-		web.GET("/", func(c *gin.Context) {
-			c.HTML(http.StatusOK, constant.IndexPage, nil)
+		web.Any("/", func(c *gin.Context) {
+			c.HTML(http.StatusOK, constant.IndexPage, gin.H{
+				"userid": c.GetString("userid"),
+			})
 		})
 		webauth := web.Group("/auth")
 		{
@@ -59,8 +63,11 @@ func main() {
 			webauth.GET("/socket/:code", controller.StartSocketHandler)
 			webauth.GET("/logout", controller.LogoutPageHandler)
 		}
+		webacct := web.Group("/account")
+		webacct.GET("/register", controller.RegisterHandler)
+		webacct.POST("/register", controller.RegisterHandler)
+		webacct.POST("/activate", controller.ActivateHandler)
 	}
-	web.GET("/mail/send", controller.SendMailHandler)
 
 	api := router.Group("/api/alpha")
 	api.Use(middleware.TokenHeaderRequired())
@@ -70,6 +77,12 @@ func main() {
 			apiauth.POST("/login", controller.LoginHandler)
 			apiauth.POST("/refresh", controller.RefreshTokenHandler)
 			apiauth.POST("/verify", controller.VerifyQrcodeHandler)
+		}
+		apiaccount := api.Group("/account")
+		{
+			//apiaccount.GET("/:id", controller.ProfileHandler)
+			apiaccount.POST("/activate", controller.ActivateHandler)
+			apiaccount.POST("/register", controller.RegisterHandler)
 		}
 	}
 
