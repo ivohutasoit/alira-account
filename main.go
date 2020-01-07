@@ -50,6 +50,7 @@ func main() {
 
 	web := router.Group("")
 	{
+		web.Use(middleware.SessionHeaderRequired(os.Getenv("LOGIN_URL")))
 		web.Any("/", func(c *gin.Context) {
 			c.HTML(http.StatusOK, constant.IndexPage, gin.H{
 				"userid": c.GetString("userid"),
@@ -64,9 +65,15 @@ func main() {
 			webauth.GET("/logout", controller.LogoutPageHandler)
 		}
 		webacct := web.Group("/account")
-		webacct.GET("/register", controller.RegisterHandler)
-		webacct.POST("/register", controller.RegisterHandler)
-		webacct.POST("/activate", controller.ActivateHandler)
+		{
+			webacct.GET("/register", controller.RegisterHandler)
+			webacct.POST("/register", controller.RegisterHandler)
+			webacct.POST("/activate", controller.ActivateHandler)
+		}
+		webtoken := web.Group("/token")
+		{
+			webtoken.POST("/verify", controller.VerifyTokenHandler)
+		}
 	}
 
 	api := router.Group("/api/alpha")
@@ -83,6 +90,7 @@ func main() {
 			//apiaccount.GET("/:id", controller.ProfileHandler)
 			apiaccount.POST("/activate", controller.ActivateHandler)
 			apiaccount.POST("/register", controller.RegisterHandler)
+			apiaccount.POST("/profile", controller.CompleteProfileHandler)
 		}
 	}
 
