@@ -4,4 +4,5 @@ const (
 	IndexPage    = "index.tmpl.html"
 	LoginPage    = "login.tmpl.html"
 	RegisterPage = "register.tmpl.html"
+	TokenPage    = "token.tmpl.html"
 )
