@@ -14,7 +14,7 @@ import (
 
 type AccountService struct{}
 
-func (as *AccountService) SaveRegisterToken(args ...interface{}) (*domain.Token, error) {
+func (as *AccountService) SendRegisterToken(args ...interface{}) (*domain.Token, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -38,6 +38,14 @@ func (as *AccountService) SaveRegisterToken(args ...interface{}) (*domain.Token,
 			break
 		}
 	}
+
+	user := &domain.User{}
+	model.GetDatabase().First(user, "active = ? AND (username = ? OR email = ? OR mobile = ?)",
+		true, payload, payload, payload)
+	if user != nil {
+		return nil, errors.New("user already exists")
+	}
+
 	token := &domain.Token{
 		BaseModel: model.BaseModel{
 			ID: uuid.New().String(),
@@ -71,7 +79,7 @@ func (as *AccountService) SaveRegisterToken(args ...interface{}) (*domain.Token,
 	return token, nil
 }
 
-func (ac *AccountService) ActivateToken(args ...interface{}) (map[string]string, error) {
+func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[string]string, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -97,7 +105,7 @@ func (ac *AccountService) ActivateToken(args ...interface{}) (map[string]string,
 	token := &domain.Token{}
 	model.GetDatabase().First(token, "access_token = ? AND referer = ? AND valid = ?",
 		code, referer, true)
-	if token == nil || token.NotAfter.Before(time.Now()) {
+	if token == nil {
 		return nil, errors.New("invalid token")
 	}
 
@@ -123,7 +131,7 @@ func (ac *AccountService) ActivateToken(args ...interface{}) (map[string]string,
 		Code:      "BASIC",
 		UserID:    user.BaseModel.ID,
 		User:      *user,
-		Purpose:   "BASIC USAGE",
+		Purpose:   "Basic Account Usage",
 		Signature: util.GenerateToken(16),
 		NotBefore: time.Now(),
 		AgreedAt:  time.Now(),
@@ -134,28 +142,36 @@ func (ac *AccountService) ActivateToken(args ...interface{}) (map[string]string,
 			ID: uuid.New().String(),
 		},
 		Class:     "SESSION",
-		UserID:    user.ID,
+		UserID:    user.BaseModel.ID,
 		User:      *user,
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().Add(time.Hour * 12),
 		Valid:     true,
 	}
-	authService := &AuthService{}
-	tokens, err := authService.Login("Creation", token)
+	now := time.Now()
+	expired := now.AddDate(0, 0, 1)
+
+	ts := &TokenService{}
+	data, err := ts.GenerateToken(user.BaseModel.ID, now, expired)
 	if err != nil {
 		return nil, err
 	}
-	sessionToken.AccessToken = tokens["access_token"].(string)
-	sessionToken.RefreshToken = tokens["refresh_token"].(string)
 
-	model.GetDatabase().Delete(token)
+	sessionToken.AccessToken = data["access_token"].(string)
+	sessionToken.RefreshToken = data["refresh_token"].(string)
+
+	token.UserID = user.BaseModel.ID
+	token.User = *user
+	token.Valid = false
+
 	model.GetDatabase().Create(user)
 	model.GetDatabase().Create(profile)
 	model.GetDatabase().Create(subscribe)
 	model.GetDatabase().Create(sessionToken)
+	model.GetDatabase().Update(token)
 
 	return map[string]string{
-		"user":          user.ID,
+		"user":          user.BaseModel.ID,
 		"access_token":  sessionToken.AccessToken,
 		"refresh_token": sessionToken.RefreshToken,
 	}, nil

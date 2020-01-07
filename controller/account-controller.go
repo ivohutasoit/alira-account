@@ -63,7 +63,7 @@ func RegisterByEmailHandler(c *gin.Context) {
 		c.HTML(http.StatusOK, constant.RegisterPage, nil)
 	} else {
 		accountService := &service.AccountService{}
-		token, err := accountService.SaveRegisterToken(c.GetString("payload"), "email")
+		token, err := accountService.SendRegisterToken(c.GetString("payload"), "email")
 		if err != nil {
 			if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
 				c.Header("Content-Type", "application/json")
@@ -91,8 +91,9 @@ func RegisterByEmailHandler(c *gin.Context) {
 			})
 			return
 		}
-		c.HTML(http.StatusOK, constant.ActivatePage, gin.H{
+		c.HTML(http.StatusOK, constant.TokenPage, gin.H{
 			"referer": token.Referer,
+			"purpose": "ACTIVATION",
 		})
 	}
 }
@@ -128,8 +129,7 @@ func ActivateHandler(c *gin.Context) {
 	}
 
 	acctService := &service.AccountService{}
-	fmt.Println(request.Referer)
-	result, err := acctService.ActivateToken(request.Referer, request.Token)
+	result, err := acctService.ActivateRegistration(request.Referer, request.Token)
 	if err != nil {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
 			c.Header("Content-Type", "application/json")
