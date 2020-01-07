@@ -38,14 +38,13 @@ func LoginHandler(c *gin.Context) {
 			"code":     encrypted,
 			"redirect": redirect,
 		})
-	} else {
-		type Login struct {
-			UserID   string `form:"userid" json:"userid" xml:"userid"  binding:"required"`
-			Password string `form:"password" json:"password" xml:"password" binding:"required"`
+	} else if c.Request.Method == http.MethodPost {
+		type Request struct {
+			UserID string `form:"userid" json:"userid" xml:"userid"  binding:"required"`
 		}
-		var login Login
+		var req Request
 		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
-			if err := c.ShouldBindJSON(&login); err != nil {
+			if err := c.ShouldBindJSON(&req); err != nil {
 				c.Header("Content-Type", "application/json")
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code":   400,
@@ -55,7 +54,7 @@ func LoginHandler(c *gin.Context) {
 				return
 			}
 		} else {
-			if err := c.ShouldBind(&login); err != nil {
+			if err := c.ShouldBind(&req); err != nil {
 				c.HTML(http.StatusUnauthorized, constant.IndexPage, gin.H{
 					"code":     encrypted,
 					"redirect": redirect,
@@ -65,45 +64,40 @@ func LoginHandler(c *gin.Context) {
 			}
 		}
 
-		fmt.Println(c.PostForm("userid"))
 		auth := &service.AuthService{}
-		token, err := auth.Login("Basic", login.UserID, login.Password)
+		data, err := auth.SendLoginToken(req.UserID)
 		if err != nil {
-			c.HTML(http.StatusBadRequest, constant.IndexPage, gin.H{
+			if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+				return
+			}
+			c.HTML(http.StatusBadRequest, constant.LoginPage, gin.H{
 				"code":     encrypted,
 				"redirect": redirect,
 				"error":    err.Error(),
 			})
 			return
 		}
+		status := data["status"].(string)
 
-		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
-			c.Header("Content-Type", "application/json")
-			c.JSON(http.StatusOK, gin.H{
-				"code":   200,
-				"status": "OK",
-				"data": map[string]string{
-					"access_token":  token["access_token"].(string),
-					"refresh_token": token["refresh_token"].(string),
-				},
+		if status == "success" {
+			if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+				c.Header("Content-Type", "application/json")
+				c.JSON(http.StatusOK, gin.H{
+					"code":   200,
+					"status": "OK",
+					"data": map[string]string{
+						"message": data["message"].(string),
+					},
+				})
+				return
+			}
+			c.HTML(http.StatusOK, constant.TokenPage, gin.H{
+				"referer": req.UserID,
+				"purpose": data["purpose"].(string),
 			})
 			return
 		}
-
-		session := sessions.Default(c)
-		session.Set("access_token", token["access_token"])
-		session.Set("refresh_token", token["refresh_token"])
-		session.Save()
-
-		if redirect != "" {
-			uri, err := util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
-			if err != nil {
-				fmt.Printf("Error: %s", err.Error())
-			}
-			c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
-			return
-		}
-		c.HTML(http.StatusOK, constant.IndexPage, nil)
+		c.HTML(http.StatusOK, constant.LoginPage, nil)
 	}
 }
 
@@ -163,8 +157,8 @@ func LogoutPageHandler(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
 		return
 	}
-
-	c.HTML(http.StatusOK, constant.IndexPage, nil)
+	uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
+	c.Redirect(http.StatusPermanentRedirect, uri)
 }
 
 var wsupgrader = &websocket.Upgrader{
