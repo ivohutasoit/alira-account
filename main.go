@@ -5,7 +5,11 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/controller"
+	"github.com/ivohutasoit/alira/middleware"
+	"github.com/ivohutasoit/alira/model"
+	"github.com/ivohutasoit/alira/model/domain"
 	"github.com/joho/godotenv"
 
 	"github.com/gin-contrib/cors"
@@ -14,6 +18,13 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/heroku/x/hmetrics/onload"
 )
+
+func init() {
+	model.GetDatabase().Debug().AutoMigrate(&domain.User{},
+		&domain.Profile{},
+		&domain.Subscribe{},
+		&domain.Token{})
+}
 
 func main() {
 	err := godotenv.Load()
@@ -34,29 +45,54 @@ func main() {
 
 	store := cookie.NewStore([]byte(os.Getenv("SECRET_KEY")))
 	router.Use(sessions.Sessions("ALIRASESSION", store))
-	router.LoadHTMLGlob("templates/*.tmpl.html")
+	router.LoadHTMLGlob("views/*/*.tmpl.html")
 	router.Static("/static", "static")
 
-	web := router.Group("/")
+	web := router.Group("")
 	{
-		web.GET("", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "index.tmpl.html", nil)
+		web.Use(middleware.SessionHeaderRequired(os.Getenv("LOGIN_URL")))
+		web.Any("/", func(c *gin.Context) {
+			c.HTML(http.StatusOK, constant.IndexPage, gin.H{
+				"userid": c.GetString("userid"),
+			})
 		})
-		webauth := web.Group("auth")
+		webauth := web.Group("/auth")
 		{
-			webauth.GET("/login", controller.LoginPageHandler)
-			webauth.POST("/login", controller.LoginPageHandler)
+			webauth.GET("/login", controller.LoginHandler)
+			webauth.POST("/login", controller.LoginHandler)
+			webauth.GET("/qrcode/:code", controller.GenerateImageQrcodeHandler)
+			webauth.GET("/socket/:code", controller.StartSocketHandler)
 			webauth.GET("/logout", controller.LogoutPageHandler)
+		}
+		webacct := web.Group("/account")
+		{
+			webacct.GET("/register", controller.RegisterHandler)
+			webacct.POST("/register", controller.RegisterHandler)
+		}
+		webtoken := web.Group("/token")
+		{
+			webtoken.POST("/verify", controller.VerifyTokenHandler)
 		}
 	}
 
 	api := router.Group("/api/alpha")
+	api.Use(middleware.TokenHeaderRequired())
 	{
 		apiauth := api.Group("/auth")
 		{
-			apiauth.GET("/qrcode/:code", controller.GenerateImageQrcodeHandler)
-			apiauth.GET("/socket/:code", controller.StartSocketHandler)
-			apiauth.GET("/verify/:code", controller.VerifyQrcodeHandler)
+			apiauth.POST("/login", controller.LoginHandler)
+			apiauth.POST("/refresh", controller.RefreshTokenHandler)
+			apiauth.POST("/verify", controller.VerifyQrcodeHandler)
+		}
+		apiaccount := api.Group("/account")
+		{
+			//apiaccount.GET("/:id", controller.ProfileHandler)
+			apiaccount.POST("/register", controller.RegisterHandler)
+			apiaccount.POST("/profile", controller.CompleteProfileHandler)
+		}
+		apitoken := api.Group("token")
+		{
+			apitoken.POST("verify", controller.VerifyTokenHandler)
 		}
 	}
 

@@ -4,23 +4,26 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/model"
 	"github.com/ivohutasoit/alira-account/service"
-	"github.com/ivohutasoit/alira/common"
+	cstn "github.com/ivohutasoit/alira/constant"
 	"github.com/ivohutasoit/alira/util"
+	ua "github.com/mileusna/useragent"
 	"github.com/skip2/go-qrcode"
 )
 
-func LoginPageHandler(c *gin.Context) {
+// LoginHandler manages login request to show page, form action and api
+func LoginHandler(c *gin.Context) {
 	redirect := c.Query("redirect")
 
-	qrcode := &service.QrcodeService{}
-	code := qrcode.Generate()
-	
+	code := util.GenerateQrcode(16)
+
 	encrypted, err := util.Encrypt(code, os.Getenv("SECRET_KEY"))
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
@@ -29,46 +32,125 @@ func LoginPageHandler(c *gin.Context) {
 		Redirect: redirect,
 		Status:   1,
 	}
-	
+
 	if c.Request.Method == http.MethodGet {
-		c.HTML(http.StatusOK, "login.tmpl.html", gin.H{
+		c.HTML(http.StatusOK, constant.LoginPage, gin.H{
 			"code":     encrypted,
 			"redirect": redirect,
 		})
+		return
+	}
+
+	type Request struct {
+		UserID string `form:"userid" json:"userid" xml:"userid"  binding:"required"`
+	}
+
+	var req Request
+	if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":   400,
+				"status": "Bad Request",
+				"error":  err.Error(),
+			})
+			return
+		}
 	} else {
-		token, err := service.Login(c.PostForm("userid"), c.PostForm("password"))
-		if err != nil {
-			c.HTML(http.StatusUnauthorized, "login.tmpl.html", gin.H{
+		if err := c.ShouldBind(&req); err != nil {
+			c.HTML(http.StatusUnauthorized, constant.IndexPage, gin.H{
 				"code":     encrypted,
 				"redirect": redirect,
 				"error":    err.Error(),
 			})
 			return
 		}
+	}
 
-		session := sessions.Default(c)
-		session.Set("token", token)
-		session.Save()
-
-		if redirect != "" {
-			uri, err := util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
-			if err != nil {
-				fmt.Printf("Error: %s", err.Error())
-			}
-			c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
+	auth := &service.AuthService{}
+	data, err := auth.SendLoginToken(req.UserID)
+	if err != nil {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
 			return
 		}
-
-		c.HTML(http.StatusOK, "index.tmpl.html", nil)
+		c.HTML(http.StatusBadRequest, constant.LoginPage, gin.H{
+			"code":     encrypted,
+			"redirect": redirect,
+			"error":    err.Error(),
+		})
+		return
 	}
+	status := data["status"].(string)
+
+	if status == "success" {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusOK, gin.H{
+				"code":   200,
+				"status": "OK",
+				"data": map[string]string{
+					"message": data["message"].(string),
+				},
+			})
+			return
+		}
+		c.HTML(http.StatusOK, constant.TokenPage, gin.H{
+			"referer": req.UserID,
+			"purpose": data["purpose"].(string),
+		})
+		return
+	}
+	c.HTML(http.StatusOK, constant.LoginPage, nil)
 }
 
+func RefreshTokenHandler(c *gin.Context) {
+	redirect := c.Query("redirect")
+	currentPath := c.Request.URL.Path
+	userid := c.MustGet("userid")
+	tokens := strings.Split(c.Request.Header.Get("Authorization"), " ")
+
+	authService := &service.AuthService{}
+	data, err := authService.GenerateRefreshToken(userid, tokens[1])
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	if strings.Contains(currentPath, os.Getenv("API_URI")) {
+		c.Header("Content-Type", "application/json")
+		c.JSON(http.StatusOK, gin.H{
+			"code":   200,
+			"status": "OK",
+			"data": map[string]string{
+				"access_token":  data["access_token"].(string),
+				"refresh_token": data["refresh_token"].(string),
+			},
+		})
+		return
+	}
+
+	session := sessions.Default(c)
+	session.Set("access_token", data["access_token"].(string))
+	session.Set("refresh_token", data["refresh_token"].(string))
+	session.Save()
+
+	if redirect != "" {
+		uri, err := util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
+		if err != nil {
+			fmt.Printf("Error: %s", err.Error())
+		}
+		c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
+		return
+	}
+
+	c.HTML(http.StatusOK, constant.IndexPage, nil)
+}
+
+// TODO
 func LogoutPageHandler(c *gin.Context) {
 	redirect := c.Query("redirect")
 	session := sessions.Default(c)
 	session.Clear()
 	session.Save()
-	
+
 	if redirect != "" {
 		uri, err := util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
 		if err != nil {
@@ -78,13 +160,13 @@ func LogoutPageHandler(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
 		return
 	}
-
-	c.HTML(http.StatusOK, "index.tmpl.html", nil)
+	uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
+	c.Redirect(http.StatusPermanentRedirect, uri)
 }
 
 var wsupgrader = &websocket.Upgrader{
-	ReadBufferSize:  int(common.SocketBufferSize),
-	WriteBufferSize: int(common.SocketBufferSize),
+	ReadBufferSize:  int(cstn.SocketBufferSize),
+	WriteBufferSize: int(cstn.SocketBufferSize),
 }
 
 func GenerateImageQrcodeHandler(c *gin.Context) {
@@ -100,6 +182,7 @@ func GenerateImageQrcodeHandler(c *gin.Context) {
 }
 
 func StartSocketHandler(c *gin.Context) {
+	userAgent := c.Request.Header["User-Agent"][0]
 	code := c.Param("code")
 	decrypted, err := util.Decrypt(code, os.Getenv("SECRET_KEY"))
 	if err != nil {
@@ -120,8 +203,9 @@ func StartSocketHandler(c *gin.Context) {
 	}
 	loginSocket := model.Sockets[decrypted]
 	model.Sockets[decrypted] = model.LoginSocket{
-		Redirect: loginSocket.Redirect,
-		Socket: socket,
+		Redirect:  loginSocket.Redirect,
+		UserAgent: userAgent,
+		Socket:    socket,
 	}
 	for {
 		mt, msg, err := socket.ReadMessage()
@@ -139,7 +223,19 @@ func StartSocketHandler(c *gin.Context) {
 }
 
 func VerifyQrcodeHandler(c *gin.Context) {
-	code := c.Param("code")
+	userAgent := ua.Parse(c.Request.Header["User-Agent"][0])
+
+	if !userAgent.Mobile {
+		c.Writer.Header().Set("Content-Type", "application/json")
+		c.JSON(http.StatusNotAcceptable, gin.H{
+			"code":   406,
+			"status": "Not Acceptable",
+			"error":  "qrcode log in must be used authenticated mobile app",
+		})
+		return
+	}
+
+	code := c.PostForm("code")
 	decrypted, err := util.Decrypt(code, os.Getenv("SECRET_KEY"))
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
@@ -175,13 +271,18 @@ func VerifyQrcodeHandler(c *gin.Context) {
 			Socket: socket,
 		}
 
-		token, _ := service.Login("ivohutasoit", "hutasoit09")
+		//auth := &service.AuthService{}
+		//token, _ := auth.Login("Basic", "ivohutasoit", "hutasoit09")
 		session := sessions.Default(c)
-		session.Set("token", token)
+		//session.Set("access_token", token["access_token"])
+		//session.Set("refresh_token", token["refresh_token"])
 		session.Save()
 
+		c.Header("Content-Type", "application/json")
 		c.JSON(http.StatusOK, gin.H{
-			"status": "OK",
+			"code":    200,
+			"status":  "OK",
+			"message": "token authentication successful",
 		})
 	}
 }
