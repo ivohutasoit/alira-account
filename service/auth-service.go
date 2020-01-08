@@ -5,7 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
 	"github.com/ivohutasoit/alira/model"
 	"github.com/ivohutasoit/alira/model/domain"
@@ -47,8 +46,8 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 	mail := &domain.Mail{
 		From:     os.Getenv("SMTP.SENDER"),
 		To:       []string{user.Email},
-		Subject:  "Login Token",
-		Template: "views/mail/token_login.html",
+		Subject:  "[Alira] Authentication Token",
+		Template: "views/mail/login.html",
 		Data: map[interface{}]interface{}{
 			"username": user.Email,
 			"token":    token.AccessToken,
@@ -101,15 +100,12 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 	expired := now.AddDate(0, 0, 1)
 
 	ts := &TokenService{}
-	data, err := ts.GenerateToken(userid, now, expired)
+	data, err := ts.GenerateSessionToken(userid, now, expired)
 	if err != nil {
 		return nil, err
 	}
 
 	sessionToken := &domain.Token{
-		BaseModel: model.BaseModel{
-			ID: uuid.New().String(),
-		},
 		Class:        "SESSION",
 		UserID:       userid,
 		AccessToken:  data["access_token"].(string),
@@ -126,99 +122,57 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 	return data, nil
 }
 
-func (s *AuthService) Login(args ...interface{}) (map[interface{}]interface{}, error) {
-	if len(args) < 1 {
+func (s *AuthService) GenerateRefreshToken(args ...interface{}) (map[interface{}]interface{}, error) {
+	if len(args) < 2 {
 		return nil, errors.New("not enough parameters")
 	}
-	authType, ok := args[0].(string)
-	if !ok {
-		return nil, errors.New("plain text parameter not type string")
+	var userid, refreshToken string
+	for i, p := range args {
+		switch i {
+		case 1:
+			param, ok := p.(string)
+			if !ok {
+				return nil, errors.New("plain text parameter not type string")
+			}
+			refreshToken = param
+			break
+		default:
+			param, ok := p.(string)
+			if !ok {
+				return nil, errors.New("plain text parameter not type string")
+			}
+			userid = param
+			break
+		}
 	}
-
-	var userid string
+	token := &domain.Token{}
+	model.GetDatabase().First(token, "refresh_token = ? AND user_id = ? AND valid = ?",
+		refreshToken, userid, true)
+	if token == nil {
+		return nil, errors.New("invalid refresh token")
+	}
 	now := time.Now()
 	expired := now.AddDate(0, 0, 1)
-	user := &domain.User{}
-	if authType == "Basic" {
-		if len(args) < 3 {
-			return nil, errors.New("not enough parameters")
-		}
 
-		userid, ok := args[1].(string)
-		if !ok {
-			return nil, errors.New("plain text parameter not type string")
-		}
-		if userid != "ivohutasoit" {
-			return nil, errors.New("invalid user or password")
-		}
-
-		/*password, ok := args[2].(string)
-		if !ok {
-			return nil, errors.New("plain text parameter not type string")
-		}
-		if password != "hutasoit09" {
-			return nil, errors.New("invalid user or password")
-		}*/
-
-		model.GetDatabase().First(user, "(username = ? OR email = ? OR mobile = ?) and active = ?",
-			userid, userid, userid, true)
-
-		if user == nil {
-			return nil, errors.New("invalid user or password")
-		}
-	} else if authType == "Refresh" {
-		if len(args) < 2 {
-			return nil, errors.New("not enough parameters")
-		}
-
-		userid, ok := args[1].(string)
-		if !ok {
-			return nil, errors.New("plain text parameter not type string")
-		}
-		if userid != "ivohutasoit" {
-			return nil, errors.New("invalid user or password")
-		}
-	} else if authType == "Creation" {
-		if len(args) < 2 {
-			return nil, errors.New("not enough parameters")
-		}
-		param, ok := args[1].(*domain.Token)
-		if !ok {
-			return nil, errors.New("parameter not type token")
-		}
-		userid = param.UserID
-		now = param.NotBefore
-		expired = param.NotAfter
+	ts := &TokenService{}
+	data, err := ts.GenerateSessionToken(userid, now, expired)
+	if err != nil {
+		return nil, err
 	}
 
-	accessTokenClaims := &domain.AccessTokenClaims{
-		StandardClaims: jwt.StandardClaims{
-			Id:        user.BaseModel.ID,
-			IssuedAt:  now.Unix(),
-			NotBefore: now.Unix(),
-			ExpiresAt: expired.Unix(),
-			Issuer:    os.Getenv("ISSUER"),
-		},
-		Admin: false,
+	sessionToken := &domain.Token{
+		Class:        "SESSION",
+		UserID:       userid,
+		AccessToken:  data["access_token"].(string),
+		RefreshToken: data["refresh_token"].(string),
+		NotBefore:    now,
+		NotAfter:     expired,
+		Valid:        true,
 	}
-	atkn := jwt.NewWithClaims(jwt.GetSigningMethod(os.Getenv("HASHING_METHOD")), accessTokenClaims)
-	accessToken, _ := atkn.SignedString([]byte(os.Getenv("SECRET_KEY")))
+	model.GetDatabase().Create(sessionToken)
 
-	refreshTokenClaims := &domain.RefreshTokenClaims{
-		StandardClaims: jwt.StandardClaims{
-			Id:        userid,
-			IssuedAt:  now.Unix(),
-			NotBefore: now.Unix(),
-			ExpiresAt: expired.AddDate(0, 0, 1).Unix(),
-			Issuer:    os.Getenv("ISSUER"),
-		},
-		Sub: 1,
-	}
-	rtkn := jwt.NewWithClaims(jwt.GetSigningMethod(os.Getenv("HASHING_METHOD")), refreshTokenClaims)
-	refreshToken, _ := rtkn.SignedString([]byte(os.Getenv("SECRET_KEY")))
+	token.Valid = false
+	model.GetDatabase().Update(token)
 
-	return map[interface{}]interface{}{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-	}, nil
+	return data, nil
 }
