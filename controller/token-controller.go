@@ -38,9 +38,11 @@ func VerifyTokenHandler(c *gin.Context) {
 				return
 			}
 		}
+		var data map[interface{}]interface{}
+		var err error
 		if req.Purpose == "LOGIN" {
 			authService := &service.AuthService{}
-			data, err := authService.VerifyLoginToken(req.Referer, req.Token)
+			data, err = authService.VerifyLoginToken(req.Referer, req.Token)
 			if err != nil {
 				c.HTML(http.StatusUnauthorized, constant.TokenPage, gin.H{
 					"referer": req.Referer,
@@ -69,8 +71,35 @@ func VerifyTokenHandler(c *gin.Context) {
 			uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
 			c.Redirect(http.StatusPermanentRedirect, uri)
 		} else if req.Purpose == "ACTIVATION" {
-			//accService := &service.AccountService{}
+			accService := &service.AccountService{}
+			data, err = accService.ActivateRegistration(req.Referer, req.Token)
+			if err != nil {
+				c.HTML(http.StatusUnauthorized, constant.TokenPage, gin.H{
+					"referer": req.Referer,
+					"purpose": "ACTIVATION",
+					"error":   err.Error(),
+				})
+				return
+			}
+			if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+				c.Header("Content-Type", "application/json")
+				c.JSON(http.StatusOK, gin.H{
+					"code":   200,
+					"status": "OK",
+					"data": map[string]string{
+						"access_token":  data["access_token"].(string),
+						"refresh_token": data["refresh_token"].(string),
+					},
+				})
+				return
+			}
+			session := sessions.Default(c)
+			session.Set("access_token", data["access_token"].(string))
+			session.Set("refresh_token", data["refresh_token"].(string))
+			session.Save()
 
+			uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
+			c.Redirect(http.StatusPermanentRedirect, uri)
 		}
 	}
 }

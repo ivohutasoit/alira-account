@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 	"github.com/ivohutasoit/alira/model/domain"
 )
 
 type TokenService struct{}
 
-func (s *TokenService) GenerateToken(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *TokenService) GenerateSessionToken(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 3 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -43,26 +44,28 @@ func (s *TokenService) GenerateToken(args ...interface{}) (map[interface{}]inter
 
 	accessTokenClaims := &domain.AccessTokenClaims{
 		StandardClaims: jwt.StandardClaims{
-			Id:        userid,
+			Id:        uuid.New().String(),
 			IssuedAt:  now.Unix(),
 			NotBefore: now.Unix(),
 			ExpiresAt: expired.Unix(),
 			Issuer:    os.Getenv("ISSUER"),
 		},
-		Admin: false,
+		UserID: userid,
+		Admin:  false,
 	}
 	atkn := jwt.NewWithClaims(jwt.GetSigningMethod(os.Getenv("HASHING_METHOD")), accessTokenClaims)
 	accessToken, _ := atkn.SignedString([]byte(os.Getenv("SECRET_KEY")))
 
 	refreshTokenClaims := &domain.RefreshTokenClaims{
 		StandardClaims: jwt.StandardClaims{
-			Id:        userid,
+			Id:        uuid.New().String(),
 			IssuedAt:  now.Unix(),
 			NotBefore: now.Unix(),
 			ExpiresAt: expired.AddDate(0, 0, 1).Unix(),
 			Issuer:    os.Getenv("ISSUER"),
 		},
-		Sub: 1,
+		UserID: userid,
+		Sub:    1,
 	}
 	rtkn := jwt.NewWithClaims(jwt.GetSigningMethod(os.Getenv("HASHING_METHOD")), refreshTokenClaims)
 	refreshToken, _ := rtkn.SignedString([]byte(os.Getenv("SECRET_KEY")))

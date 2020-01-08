@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -42,7 +43,7 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (*domain.Token,
 	user := &domain.User{}
 	model.GetDatabase().First(user, "active = ? AND (username = ? OR email = ? OR mobile = ?)",
 		true, payload, payload, payload)
-	if user != nil {
+	if user.ID != "" {
 		return nil, errors.New("user already exists")
 	}
 
@@ -57,12 +58,13 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (*domain.Token,
 		NotAfter:    time.Now().Add(time.Hour * 12),
 		Valid:       true,
 	}
+	fmt.Println(token.Referer)
 	if sentTo == "email" {
 		mail := &domain.Mail{
 			From:     os.Getenv("SMTP.SENDER"),
 			To:       []string{token.Referer},
-			Subject:  "Token Registration",
-			Template: "templates/mail/token_registration.html",
+			Subject:  "[Alira] Registration Token",
+			Template: "views/mail/registration.html",
 			Data: map[interface{}]interface{}{
 				"token": token.AccessToken,
 			},
@@ -79,7 +81,7 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (*domain.Token,
 	return token, nil
 }
 
-func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[string]string, error) {
+func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -152,7 +154,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[string]
 	expired := now.AddDate(0, 0, 1)
 
 	ts := &TokenService{}
-	data, err := ts.GenerateToken(user.BaseModel.ID, now, expired)
+	data, err := ts.GenerateSessionToken(user.BaseModel.ID, now, expired)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +172,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[string]
 	model.GetDatabase().Create(sessionToken)
 	model.GetDatabase().Update(token)
 
-	return map[string]string{
+	return map[interface{}]interface{}{
 		"user":          user.BaseModel.ID,
 		"access_token":  sessionToken.AccessToken,
 		"refresh_token": sessionToken.RefreshToken,
