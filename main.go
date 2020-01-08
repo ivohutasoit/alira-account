@@ -68,7 +68,6 @@ func main() {
 		{
 			webacct.GET("/register", controller.RegisterHandler)
 			webacct.POST("/register", controller.RegisterHandler)
-			webacct.POST("/activate", controller.ActivateHandler)
 		}
 		webtoken := web.Group("/token")
 		{
@@ -88,9 +87,12 @@ func main() {
 		apiaccount := api.Group("/account")
 		{
 			//apiaccount.GET("/:id", controller.ProfileHandler)
-			apiaccount.POST("/activate", controller.ActivateHandler)
 			apiaccount.POST("/register", controller.RegisterHandler)
 			apiaccount.POST("/profile", controller.CompleteProfileHandler)
+		}
+		apitoken := api.Group("token")
+		{
+			apitoken.POST("verify", controller.VerifyTokenHandler)
 		}
 	}
 
