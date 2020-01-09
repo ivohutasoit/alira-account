@@ -62,6 +62,7 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 	return map[interface{}]interface{}{
 		"status":  "success",
 		"purpose": "LOGIN",
+		"referer": user.BaseModel.ID,
 		"message": "Token login has been sent to your email",
 	}, nil
 }
@@ -117,7 +118,7 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 	model.GetDatabase().Create(&sessionToken)
 
 	token.Valid = false
-	model.GetDatabase().Save(&sessionToken)
+	model.GetDatabase().Save(&token)
 
 	return data, nil
 }

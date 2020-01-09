@@ -69,6 +69,7 @@ func VerifyTokenHandler(c *gin.Context) {
 			session.Save()
 
 			uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
+			c.Request.Method = http.MethodGet
 			c.Redirect(http.StatusPermanentRedirect, uri)
 		} else if req.Purpose == "ACTIVATION" {
 			accService := &service.AccountService{}
@@ -89,6 +90,7 @@ func VerifyTokenHandler(c *gin.Context) {
 					"data": map[string]string{
 						"access_token":  data["access_token"].(string),
 						"refresh_token": data["refresh_token"].(string),
+						"profile":       "required",
 					},
 				})
 				return
@@ -98,7 +100,8 @@ func VerifyTokenHandler(c *gin.Context) {
 			session.Set("refresh_token", data["refresh_token"].(string))
 			session.Save()
 
-			uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
+			uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/account/profile", false)
+			c.Request.Method = http.MethodGet
 			c.Redirect(http.StatusPermanentRedirect, uri)
 		}
 	}
