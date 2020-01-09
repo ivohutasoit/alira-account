@@ -112,27 +112,14 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 	}
 
 	user := &domain.User{
-		BaseModel: model.BaseModel{
-			ID: uuid.New().String(),
-		},
 		Email:  token.Referer,
 		Active: true,
 	}
 
-	profile := &domain.Profile{
-		BaseModel: model.BaseModel{
-			ID: user.BaseModel.ID,
-		},
-		User: *user,
-	}
+	profile := &domain.Profile{}
 
 	subscribe := &domain.Subscribe{
-		BaseModel: model.BaseModel{
-			ID: uuid.New().String(),
-		},
 		Code:      "BASIC",
-		UserID:    user.BaseModel.ID,
-		User:      *user,
 		Purpose:   "Basic Account Usage",
 		Signature: util.GenerateToken(16),
 		NotBefore: time.Now(),
@@ -140,12 +127,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 	}
 
 	sessionToken := &domain.Token{
-		BaseModel: model.BaseModel{
-			ID: uuid.New().String(),
-		},
 		Class:     "SESSION",
-		UserID:    user.BaseModel.ID,
-		User:      *user,
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().Add(time.Hour * 12),
 		Valid:     true,
@@ -162,18 +144,23 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 	sessionToken.AccessToken = data["access_token"].(string)
 	sessionToken.RefreshToken = data["refresh_token"].(string)
 
-	token.UserID = user.BaseModel.ID
-	token.User = *user
-	token.Valid = false
+	model.GetDatabase().Create(&user)
 
-	model.GetDatabase().Create(user)
-	model.GetDatabase().Create(profile)
-	model.GetDatabase().Create(subscribe)
-	model.GetDatabase().Create(sessionToken)
-	model.GetDatabase().Update(token)
+	profile.BaseModel.ID = user.BaseModel.ID
+	model.GetDatabase().Create(&profile)
+
+	subscribe.UserID = user.BaseModel.ID
+	model.GetDatabase().Create(&subscribe)
+
+	sessionToken.UserID = user.BaseModel.ID
+	model.GetDatabase().Create(&sessionToken)
+
+	token.UserID = user.BaseModel.ID
+	token.Valid = false
+	model.GetDatabase().Save(&token)
 
 	return map[interface{}]interface{}{
-		"user":          user.BaseModel.ID,
+		"userid":        user.BaseModel.ID,
 		"access_token":  sessionToken.AccessToken,
 		"refresh_token": sessionToken.RefreshToken,
 	}, nil
