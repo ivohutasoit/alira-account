@@ -148,6 +148,10 @@ func RefreshTokenHandler(c *gin.Context) {
 func LogoutPageHandler(c *gin.Context) {
 	redirect := c.Query("redirect")
 	session := sessions.Default(c)
+
+	authService := &service.AuthService{}
+	authService.RemoveSessionToken(session.Get("access_token"))
+
 	session.Clear()
 	session.Save()
 

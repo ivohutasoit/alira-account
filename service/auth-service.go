@@ -114,10 +114,10 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 		NotAfter:     expired,
 		Valid:        true,
 	}
-	model.GetDatabase().Create(sessionToken)
+	model.GetDatabase().Create(&sessionToken)
 
 	token.Valid = false
-	model.GetDatabase().Update(token)
+	model.GetDatabase().Save(&sessionToken)
 
 	return data, nil
 }
@@ -175,4 +175,29 @@ func (s *AuthService) GenerateRefreshToken(args ...interface{}) (map[interface{}
 	model.GetDatabase().Update(token)
 
 	return data, nil
+}
+
+func (s *AuthService) RemoveSessionToken(args ...interface{}) (map[interface{}]interface{}, error) {
+	if len(args) < 1 {
+		return nil, errors.New("not enough parameters")
+	}
+
+	accessToken := args[0].(string)
+	if accessToken == " " {
+		return nil, errors.New("invalid token")
+	}
+
+	token := &domain.Token{}
+	model.GetDatabase().First(token, "access_token = ? AND valid = ?", accessToken, true)
+	if token == nil {
+		return nil, errors.New("invalid token")
+	}
+
+	token.Valid = false
+	model.GetDatabase().Save(&token)
+
+	return map[interface{}]interface{}{
+		"status":  "success",
+		"message": "log out successful and please log in to get full access to your account",
+	}, nil
 }
