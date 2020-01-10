@@ -58,6 +58,14 @@
       Please do work through the Getting Started guide, even if you do know how to build such an application. The guide covers the basics of working with Heroku, and will familiarize you with all the concepts you need in order to build and deploy your own apps.
   </div>
 </div>
+{{ if .flashMessage }}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    <span>{{ .flashMessage }}</span>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+{{ end }}
 {{template "footer.tmpl.html"}}
 </body>
 </html>

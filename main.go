@@ -51,9 +51,14 @@ func main() {
 	web := router.Group("")
 	{
 		web.Use(middleware.SessionHeaderRequired(os.Getenv("LOGIN_URL")))
-		web.Any("/", func(c *gin.Context) {
+		web.GET("/", func(c *gin.Context) {
+			session := sessions.Default(c)
+			flashMessage := session.Get("message")
+			session.Delete("message")
+			session.Save()
 			c.HTML(http.StatusOK, constant.IndexPage, gin.H{
-				"userid": c.GetString("userid"),
+				"userid":        c.GetString("userid"),
+				"flash_message": flashMessage,
 			})
 		})
 		webauth := web.Group("/auth")
@@ -68,6 +73,8 @@ func main() {
 		{
 			webacct.GET("/register", controller.RegisterHandler)
 			webacct.POST("/register", controller.RegisterHandler)
+			webacct.GET("/profile", controller.CompleteProfileHandler)
+			webacct.POST("/profile", controller.CompleteProfileHandler)
 		}
 		webtoken := web.Group("/token")
 		{
