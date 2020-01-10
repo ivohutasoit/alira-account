@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +15,33 @@ import (
 )
 
 type AccountService struct{}
+
+func (s *AccountService) Get(args ...interface{}) (map[interface{}]interface{}, error) {
+	if len(args) < 1 {
+		return nil, errors.New("not enough parameters")
+	}
+	userid, ok := args[0].(string)
+	if !ok {
+		return nil, errors.New("plain text parameter not type string")
+	}
+	user := &domain.User{}
+	model.GetDatabase().First(user, "id = ? AND active = ?", userid, true)
+	profile := &domain.Profile{}
+	model.GetDatabase().First(profile, "id = ?", userid)
+
+	if user == nil {
+		return nil, errors.New("invalid user")
+	}
+
+	if profile == nil {
+		return nil, errors.New("invalid user profile")
+	}
+
+	return map[interface{}]interface{}{
+		"user":    user,
+		"profile": profile,
+	}, nil
+}
 
 func (as *AccountService) SendRegisterToken(args ...interface{}) (*domain.Token, error) {
 	if len(args) < 2 {
@@ -87,19 +115,15 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 	}
 	var referer, code string
 	for i, p := range args {
+		param, ok := p.(string)
+		if !ok {
+			return nil, errors.New("plain text parameter not type string")
+		}
 		switch i {
 		case 1:
-			param, ok := p.(string)
-			if !ok {
-				return nil, errors.New("plain text parameter not type string")
-			}
 			code = param
 			break
 		default:
-			param, ok := p.(string)
-			if !ok {
-				return nil, errors.New("plain text parameter not type string")
-			}
 			referer = param
 			break
 		}
@@ -146,7 +170,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 
 	model.GetDatabase().Create(&user)
 
-	profile.BaseModel.ID = user.BaseModel.ID
+	profile.ID = user.BaseModel.ID
 	model.GetDatabase().Create(&profile)
 
 	subscribe.UserID = user.BaseModel.ID
@@ -161,7 +185,67 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 
 	return map[interface{}]interface{}{
 		"userid":        user.BaseModel.ID,
+		"email":         user.Email,
 		"access_token":  sessionToken.AccessToken,
 		"refresh_token": sessionToken.RefreshToken,
+	}, nil
+}
+
+func (s *AccountService) SaveProfile(args ...interface{}) (map[interface{}]interface{}, error) {
+	if len(args) < 6 {
+		return nil, errors.New("not enough parameters")
+	}
+
+	var userid, username, mobile, firstName, lastName, gender string
+	for i, p := range args {
+		param, ok := p.(string)
+		if !ok {
+			return nil, errors.New("plain text parameter not type string")
+		}
+		switch i {
+		case 1:
+			username = strings.ToLower(param)
+			break
+		case 2:
+			mobile = param
+			break
+		case 3:
+			firstName = strings.ToUpper(param)
+			break
+		case 4:
+			lastName = strings.ToUpper(param)
+			break
+		case 5:
+			gender = strings.ToUpper(param)
+			break
+		default:
+			userid = param
+		}
+	}
+	user := &domain.User{}
+	model.GetDatabase().First(user, "id = ? AND active = ?", userid, true)
+	profile := &domain.Profile{}
+	model.GetDatabase().First(profile, "id = ?", userid)
+
+	if user == nil {
+		return nil, errors.New("invalid user")
+	}
+
+	if profile == nil {
+		return nil, errors.New("invalid user profile")
+	}
+
+	user.Username = strings.TrimSpace(username)
+	user.Mobile = strings.TrimSpace(mobile)
+	model.GetDatabase().Save(&user)
+
+	profile.Name = strings.TrimSpace(fmt.Sprintf("%s %s", firstName, lastName))
+	profile.FirstName = strings.TrimSpace(firstName)
+	profile.LastName = strings.TrimSpace(lastName)
+	profile.Gender = strings.TrimSpace(gender)
+	model.GetDatabase().Save(&profile)
+
+	return map[interface{}]interface{}{
+		"message": "User profile has been saved succesfully",
 	}, nil
 }

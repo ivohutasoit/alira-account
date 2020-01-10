@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        {{template "header.tmpl.html"}}
+        <title>Account Profile</title>
+    </head>
+    <body>
+        <div class="container">
+            <div class="container-center">
+                <h1 class="h3 mb-3 font-weight-normal text-center">Your <code>Alira</code> profile</code></h1>
+                <form role="form" class="form-login" method="POST" action="/account/profile">
+                    <div class="form-group row">
+                        <label for="email" class="col-sm-2 col-form-label">Email</label>
+                        <div class="col-sm-5">
+                            <input type="text" readonly class="form-control" name="email" id="email" value="{{ .email }}">
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="username" class="col-sm-2 col-form-label">Username</label>
+                        <div class="col-sm-5">
+                          <input type="text" {{ if ne .state "complete" }} readonly {{ end }} class="form-control" name="username" id="username" placeholder="Username" value="{{ .username }}">
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="mobile" class="col-sm-2 col-form-label">Mobile</label>
+                        <div class="col-sm-5">
+                          <input type="text" {{ if ne .state "complete" }} readonly {{ end }} class="form-control" name="mobile" id="mobile" placeholder="Mobile" value="{{ .mobile }}">
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="name" class="col-sm-2 col-form-label">Name</label>
+                        <div class="col-sm-5">
+                          <input type="text" {{ if eq .state "view" }} readonly {{ end }} class="form-control" name="first_name" id="first_name" placeholder="First Name" value="{{ .first_name }}">
+                        </div>
+                        <div class="col-sm-5">
+                            <input type="text" {{ if eq .state "view" }} readonly {{ end }} class="form-control" name="last_name" id="last_name" placeholder="Last Name" value="{{ .last_name }}">
+                          </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="gender" class="col-sm-2 col-form-label">Gender</label>
+                        <div class="col-sm-5">
+                        <select name="gender" id="gender" class="custom-select" {{ if eq .state "view" }} disabled {{ end }}>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                        </select>
+                        </div>
+                    </div>
+                    <input type="hidden" name="userid" id="userid" value="{{ .userid }}"/>
+                    <div class="clearfix">
+                    {{ if eq .state "view" }}
+                    <a class="btn btn-outline-danger float-left" href="/" role="button">Back to Home</a>
+                    <a class="btn btn-outline-warning float-right" href="/account/profile?action=edit" role="button">Update Profile</a>
+                    {{ else }}
+                    <a class="btn btn-outline-danger float-left" href="/account/profile" role="button">Cancel</a>
+                    <button type="submit" class="btn btn-outline-primary float-right">Save & Continue</button>
+                    {{ end }}
+                    </div>
+                </form>
+            </div>
+            {{ if .error }}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <span>{{ .error }}</span>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            {{ end }}
+        </div>
+        {{template "footer.tmpl.html"}}
+        <script>
+            document.getElementById("gender").value = "{{ .gender }}";
+        </script>
+    </body>
+</html>

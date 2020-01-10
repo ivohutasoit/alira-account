@@ -5,9 +5,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/service"
+	"github.com/ivohutasoit/alira/model/domain"
+	"github.com/ivohutasoit/alira/util"
 )
 
 func RegisterHandler(c *gin.Context) {
@@ -34,7 +37,9 @@ func RegisterHandler(c *gin.Context) {
 		}
 	} else {
 		if err := c.ShouldBind(&request); err != nil {
-			c.HTML(http.StatusBadRequest, constant.RegisterPage, nil)
+			c.HTML(http.StatusBadRequest, constant.RegisterPage, gin.H{
+				"error": err.Error(),
+			})
 			return
 		}
 	}
@@ -100,23 +105,106 @@ func RegisterByMobileHandler(c *gin.Context) {
 }
 
 func CompleteProfileHandler(c *gin.Context) {
-	type ProfileRequest struct {
-		Username  string `form:"username" json:"username" xml:"username" binding:"required"`
-		Email     string `form:"email" json:"email" xml:"email" binding:"required"`
-		Mobile    string `form:"mobile" json:"mobile" xml:"mobile" binding:"required"`
-		FirstName string `form:"first_name" json:"first_name" xml:"first_name" binding:"required"`
-		LastName  string `form:"last_name" json:"last_name" xml:"last_name" binding:"required"`
-		Gender    string `form:"gender" json:"gender" xml:"gender" binding:"gender"`
-		Package   string `form:"package" json:"package" xml:"package" binding:"required"`
+	action := c.Query("action")
+	if action == "" {
+		action = "view"
 	}
-	var request ProfileRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.Header("Content-Type", "application/json")
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":   400,
-			"status": "Bad Request",
-			"error":  err.Error(),
+	accService := &service.AccountService{}
+	data, err := accService.Get(c.GetString("userid"))
+	if err != nil {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":   400,
+				"status": "Bad Request",
+				"error":  err.Error(),
+			})
+		} else {
+			c.HTML(http.StatusBadRequest, constant.ProfilePage, gin.H{
+				"userid": c.GetString("userid"),
+				"error":  err.Error(),
+			})
+		}
+		return
+	}
+
+	user := data["user"].(*domain.User)
+	profile := data["profile"].(*domain.Profile)
+	if c.Request.Method == http.MethodGet {
+		c.HTML(http.StatusOK, constant.ProfilePage, gin.H{
+			"userid":     user.ID,
+			"email":      user.Email,
+			"username":   user.Username,
+			"mobile":     user.Mobile,
+			"first_name": profile.FirstName,
+			"last_name":  profile.LastName,
+			"gender":     strings.ToLower(profile.Gender),
+			"state":      action,
 		})
 		return
 	}
+	type Request struct {
+		UserID    string `form:"userid" json:"userid" xml:"userid" binding:"required"`
+		Username  string `form:"username" json:"username" xml:"username" binding:"required"`
+		Mobile    string `form:"mobile" json:"mobile" xml:"mobile" binding:"required"`
+		FirstName string `form:"first_name" json:"first_name" xml:"first_name" binding:"required"`
+		LastName  string `form:"last_name" json:"last_name" xml:"last_name" binding:"required"`
+		Gender    string `form:"gender" json:"gender" xml:"gender" binding:"required"`
+	}
+	var req Request
+	if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":   400,
+				"status": "Bad Request",
+				"error":  err.Error(),
+			})
+			return
+		}
+	} else {
+		if err := c.ShouldBind(&req); err != nil {
+			c.HTML(http.StatusBadRequest, constant.ProfilePage, gin.H{
+				"userid":     user.ID,
+				"email":      user.Email,
+				"username":   user.Username,
+				"mobile":     user.Mobile,
+				"first_name": profile.FirstName,
+				"last_name":  profile.LastName,
+				"gender":     strings.ToLower(profile.Gender),
+				"state":      action,
+				"error":      err.Error(),
+			})
+			return
+		}
+	}
+	data, err = accService.SaveProfile(req.UserID, req.Username, req.Mobile, req.FirstName, req.LastName, req.Gender)
+	if err != nil {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":   400,
+				"status": "Bad Request",
+				"error":  err.Error(),
+			})
+		} else {
+			c.HTML(http.StatusBadRequest, constant.ProfilePage, gin.H{
+				"userid":     user.ID,
+				"email":      user.Email,
+				"username":   user.Username,
+				"mobile":     user.Mobile,
+				"first_name": profile.FirstName,
+				"last_name":  profile.LastName,
+				"gender":     strings.ToLower(profile.Gender),
+				"state":      action,
+				"error":      err.Error(),
+			})
+		}
+		return
+	}
+	session := sessions.Default(c)
+	session.Set("message", data["message"])
+	session.Save()
+	uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/account/profile", false)
+	c.Redirect(http.StatusMovedPermanently, uri)
 }

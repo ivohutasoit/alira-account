@@ -11,6 +11,7 @@
     </div>
     <div class="nav navbar-nav justify-content-end">
       {{ if .userid }}
+      <a class="nav-item nav-link" href="/account/profile"><span class="glyphicon glyphicon-book"></span> Profile</a>
       <a class="nav-item nav-link" href="/auth/logout"><span class="glyphicon glyphicon-book"></span> Logout</a>
       {{ else }}
       <a class="nav-item nav-link" href="/auth/login"><span class="glyphicon glyphicon-book"></span> Login</a>
