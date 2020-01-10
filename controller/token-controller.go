@@ -67,8 +67,13 @@ func VerifyTokenHandler(c *gin.Context) {
 			session.Set("access_token", data["access_token"].(string))
 			session.Set("refresh_token", data["refresh_token"].(string))
 			session.Save()
-
-			uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
+			redirect := c.Query("redirect")
+			var uri string
+			if redirect != "" {
+				uri, _ = util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
+			} else {
+				uri, _ = util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
+			}
 			c.Redirect(http.StatusMovedPermanently, uri)
 		} else if req.Purpose == "ACTIVATION" {
 			accService := &service.AccountService{}

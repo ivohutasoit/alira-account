@@ -95,8 +95,9 @@ func LoginHandler(c *gin.Context) {
 			return
 		}
 		c.HTML(http.StatusOK, constant.TokenPage, gin.H{
-			"referer": data["referer"].(string),
-			"purpose": data["purpose"].(string),
+			"referer":  data["referer"].(string),
+			"redirect": redirect,
+			"purpose":  data["purpose"].(string),
 		})
 		return
 	}
