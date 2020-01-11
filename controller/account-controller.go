@@ -25,7 +25,7 @@ func RegisterHandler(c *gin.Context) {
 	}
 
 	var request Request
-	if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 		if err := c.ShouldBindJSON(&request); err != nil {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -64,7 +64,7 @@ func RegisterByEmailHandler(c *gin.Context) {
 		accountService := &service.AccountService{}
 		token, err := accountService.SendRegisterToken(c.GetString("userid"), "email")
 		if err != nil {
-			if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+			if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 				c.Header("Content-Type", "application/json")
 				c.JSON(http.StatusBadRequest, gin.H{
 					"code":   400,
@@ -79,7 +79,7 @@ func RegisterByEmailHandler(c *gin.Context) {
 			return
 		}
 
-		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.JSONP(http.StatusOK, gin.H{
 				"code":   200,
 				"status": "OK",
@@ -112,7 +112,7 @@ func CompleteProfileHandler(c *gin.Context) {
 	accService := &service.AccountService{}
 	data, err := accService.Get(c.GetString("userid"))
 	if err != nil {
-		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":   400,
@@ -152,7 +152,7 @@ func CompleteProfileHandler(c *gin.Context) {
 		Gender    string `form:"gender" json:"gender" xml:"gender" binding:"required"`
 	}
 	var req Request
-	if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -180,7 +180,7 @@ func CompleteProfileHandler(c *gin.Context) {
 	}
 	data, err = accService.SaveProfile(req.UserID, req.Username, req.Mobile, req.FirstName, req.LastName, req.Gender)
 	if err != nil {
-		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":   400,

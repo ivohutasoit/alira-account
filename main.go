@@ -50,7 +50,7 @@ func main() {
 
 	web := router.Group("")
 	{
-		web.Use(middleware.SessionHeaderRequired(os.Getenv("LOGIN_URL")))
+		web.Use(middleware.SessionHeaderRequired(os.Getenv("URL_LOGIN")))
 		web.GET("/", func(c *gin.Context) {
 			session := sessions.Default(c)
 			flashMessage := session.Get("message")

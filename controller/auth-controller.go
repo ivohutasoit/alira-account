@@ -46,7 +46,7 @@ func LoginHandler(c *gin.Context) {
 	}
 
 	var req Request
-	if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -70,7 +70,7 @@ func LoginHandler(c *gin.Context) {
 	auth := &service.AuthService{}
 	data, err := auth.SendLoginToken(req.UserID)
 	if err != nil {
-		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			return
 		}
 		c.HTML(http.StatusBadRequest, constant.LoginPage, gin.H{
@@ -83,7 +83,7 @@ func LoginHandler(c *gin.Context) {
 	status := data["status"].(string)
 
 	if status == "success" {
-		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusOK, gin.H{
 				"code":   200,
@@ -115,7 +115,7 @@ func RefreshTokenHandler(c *gin.Context) {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	if strings.Contains(currentPath, os.Getenv("API_URI")) {
+	if strings.Contains(currentPath, os.Getenv("URL_API")) {
 		c.Header("Content-Type", "application/json")
 		c.JSON(http.StatusOK, gin.H{
 			"code":   200,

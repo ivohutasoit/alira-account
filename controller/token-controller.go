@@ -20,7 +20,7 @@ func VerifyTokenHandler(c *gin.Context) {
 			Purpose string `form:"purpose" json:"purpose" xml:"purpose" binding:"required"`
 		}
 		var req Request
-		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			if err := c.ShouldBindJSON(&req); err != nil {
 				c.Header("Content-Type", "application/json")
 				c.JSON(http.StatusBadRequest, gin.H{
@@ -51,7 +51,7 @@ func VerifyTokenHandler(c *gin.Context) {
 				})
 				return
 			}
-			if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+			if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 				c.Header("Content-Type", "application/json")
 				c.JSON(http.StatusOK, gin.H{
 					"code":   200,
@@ -86,7 +86,7 @@ func VerifyTokenHandler(c *gin.Context) {
 				})
 				return
 			}
-			if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+			if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 				c.Header("Content-Type", "application/json")
 				c.JSON(http.StatusOK, gin.H{
 					"code":   200,

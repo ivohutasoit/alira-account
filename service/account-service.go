@@ -89,7 +89,7 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (*domain.Token,
 	fmt.Println(token.Referer)
 	if sentTo == "email" {
 		mail := &domain.Mail{
-			From:     os.Getenv("SMTP.SENDER"),
+			From:     os.Getenv("SMTP_SENDER"),
 			To:       []string{token.Referer},
 			Subject:  "[Alira] Registration Token",
 			Template: "views/mail/registration.html",

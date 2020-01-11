@@ -44,7 +44,7 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 	}
 	model.GetDatabase().Create(token)
 	mail := &domain.Mail{
-		From:     os.Getenv("SMTP.SENDER"),
+		From:     os.Getenv("SMTP_SENDER"),
 		To:       []string{user.Email},
 		Subject:  "[Alira] Authentication Token",
 		Template: "views/mail/login.html",
