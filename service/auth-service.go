@@ -25,15 +25,14 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 	user := &domain.User{}
 	model.GetDatabase().First(user, "(username = ? OR email = ? OR mobile = ?) and active = ?",
 		userid, userid, userid, true)
-
-	if user.ID != "" {
+	if user.BaseModel.ID == "" {
 		return nil, errors.New("invalid user or password")
 	}
 
 	tokenExist := &domain.Token{}
-	model.GetDatabase().First(tokenExist, "valid = ? AND class = ? AND user_id = ?", true, "LOGIN", user.ID)
-
-	if tokenExist != nil {
+	model.GetDatabase().First(tokenExist, "valid = ? AND class = ? AND user_id = ?",
+		true, "LOGIN", user.ID)
+	if tokenExist.BaseModel.ID != "" {
 		tokenExist.Valid = false
 		model.GetDatabase().Save(&tokenExist)
 	}
