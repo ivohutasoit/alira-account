@@ -8,12 +8,15 @@
         <div class="container">
             <div class="container-center">
                 <h1 class="h3 mb-3 font-weight-normal text-center">Welcome to <code>Alira</code></h1>
-                <form class="form-inline form-login" method="POST" action="/auth/login">
-                    <div class="form-group mx-sm-3 mb-2">
+                <form class="form-login" method="POST" action="/auth/login">
+                    <div class="form-group">
                         <label for="userid" class="sr-only">UserID</label>
                         <input type="text" class="form-control" id="userid" name="userid" placeholder="Username, email, or mobile" required>
                     </div>
-                    <button type="submit" class="btn btn-primary mb-2">Login</button>
+                    <div class="clearfix">
+                        <a class="btn btn-outline-danger btn-sm float-left" href="/" role="button">Back to Home</a>
+                        <button type="submit" class="btn btn-outline-primary btn-sm float-right">Login</button>
+                    </div>
                 </form>
                 <div class="text-center clear-fix">
                     <span><b>-- or --</b></span>

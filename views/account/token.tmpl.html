@@ -9,18 +9,20 @@
             <div class="container-center">
                 <h1 class="h3 mb-3 font-weight-normal text-center">Token <code>Alira</code></h1>
                 {{ if .redirect }}
-                <form class="form-inline form-login" method="POST" action="/token/verify?redirect={{ .redirect }}"></form>
+                <form class="form-login" method="POST" action="/token/verify?redirect={{ .redirect }}"></form>
                 {{ else }}
-                <form class="form-inline form-login" method="POST" action="/token/verify">
+                <form class="form-login" method="POST" action="/token/verify">
                 {{ end }}
-                    <div class="form-group mx-sm-3 mb-2">
+                    <div class="form-group">
                         <input type="text" class="form-control" id="token" name="token" placeholder="Token" required>
                     </div>
                     <input type="hidden" name="referer" value="{{ .referer }}"/>
                     <input type="hidden" name="purpose" value="{{ .purpose }}"/>
-                    <button type="submit" class="btn btn-primary mb-2">Submit</button>
+                    <div class="clearfix">
+                        <a class="btn btn-outline-danger btn-sm float-left" href="/" role="button">Back to Home</a>
+                        <button type="submit" class="btn btn-outline-primary btn-sm float-right">Submit</button>
+                    </div>
                 </form>
-                <a href="/">Cancel</a>
             </div>
             {{ if .error }}
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
