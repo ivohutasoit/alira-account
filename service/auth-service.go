@@ -26,9 +26,18 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 	model.GetDatabase().First(user, "(username = ? OR email = ? OR mobile = ?) and active = ?",
 		userid, userid, userid, true)
 
-	if user == nil {
+	if user.ID != "" {
 		return nil, errors.New("invalid user or password")
 	}
+
+	tokenExist := &domain.Token{}
+	model.GetDatabase().First(tokenExist, "valid = ? AND class = ? AND user_id = ?", true, "LOGIN", user.ID)
+
+	if tokenExist != nil {
+		tokenExist.Valid = false
+		model.GetDatabase().Save(&tokenExist)
+	}
+
 	token := &domain.Token{
 		BaseModel: model.BaseModel{
 			ID: uuid.New().String(),

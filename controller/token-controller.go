@@ -92,6 +92,7 @@ func VerifyTokenHandler(c *gin.Context) {
 					"code":   200,
 					"status": "OK",
 					"data": map[string]string{
+						"userid":        data["userid"].(string),
 						"access_token":  data["access_token"].(string),
 						"refresh_token": data["refresh_token"].(string),
 						"profile":       "required",

@@ -75,6 +75,14 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (*domain.Token,
 		return nil, errors.New("user already exists")
 	}
 
+	tokenExist := &domain.Token{}
+	model.GetDatabase().First(tokenExist, "valid = ? AND class = ? AND referer = ?", true, "REGISTER", payload)
+
+	if tokenExist != nil {
+		tokenExist.Valid = false
+		model.GetDatabase().Save(&tokenExist)
+	}
+
 	token := &domain.Token{
 		BaseModel: model.BaseModel{
 			ID: uuid.New().String(),
@@ -246,6 +254,7 @@ func (s *AccountService) SaveProfile(args ...interface{}) (map[interface{}]inter
 	model.GetDatabase().Save(&profile)
 
 	return map[interface{}]interface{}{
+		"userid":  userid,
 		"message": "User profile has been saved succesfully",
 	}, nil
 }

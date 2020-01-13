@@ -23,7 +23,8 @@ func init() {
 	model.GetDatabase().Debug().AutoMigrate(&domain.User{},
 		&domain.Profile{},
 		&domain.Subscribe{},
-		&domain.Token{})
+		&domain.Token{},
+		&domain.Identity{})
 }
 
 func main() {
@@ -73,8 +74,8 @@ func main() {
 		{
 			webacct.GET("/register", controller.RegisterHandler)
 			webacct.POST("/register", controller.RegisterHandler)
-			webacct.GET("/profile", controller.CompleteProfileHandler)
-			webacct.POST("/profile", controller.CompleteProfileHandler)
+			webacct.GET("/profile", controller.ProfileHandler)
+			webacct.POST("/profile", controller.ProfileHandler)
 		}
 		webtoken := web.Group("/token")
 		{
@@ -93,9 +94,9 @@ func main() {
 		}
 		apiaccount := api.Group("/account")
 		{
-			//apiaccount.GET("/:id", controller.ProfileHandler)
 			apiaccount.POST("/register", controller.RegisterHandler)
-			apiaccount.POST("/profile", controller.CompleteProfileHandler)
+			apiaccount.POST("/profile", controller.ProfileHandler)
+			apiaccount.POST("/identity", controller.IdentityHandler)
 		}
 		apitoken := api.Group("token")
 		{

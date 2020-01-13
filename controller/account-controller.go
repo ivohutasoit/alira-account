@@ -13,6 +13,12 @@ import (
 	"github.com/ivohutasoit/alira/util"
 )
 
+func AccountViewHandler(c *gin.Context) {
+	if c.Request.Method == http.MethodGet {
+		return
+	}
+}
+
 func RegisterHandler(c *gin.Context) {
 	if c.Request.Method == http.MethodGet {
 		c.HTML(http.StatusOK, constant.RegisterPage, nil)
@@ -104,7 +110,7 @@ func RegisterByMobileHandler(c *gin.Context) {
 	})
 }
 
-func CompleteProfileHandler(c *gin.Context) {
+func ProfileHandler(c *gin.Context) {
 	action := c.Query("action")
 	if action == "" {
 		action = "view"
@@ -202,6 +208,20 @@ func CompleteProfileHandler(c *gin.Context) {
 		}
 		return
 	}
+
+	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+		c.Header("Content-Type", "application/json")
+		c.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"status":  "OK",
+			"message": data["message"].(string),
+			"data": map[string]string{
+				"userid": data["userid"].(string),
+			},
+		})
+		return
+	}
+
 	session := sessions.Default(c)
 	session.Set("message", data["message"])
 	session.Save()

@@ -151,7 +151,10 @@ func LogoutPageHandler(c *gin.Context) {
 	session := sessions.Default(c)
 
 	authService := &service.AuthService{}
-	authService.RemoveSessionToken(session.Get("access_token"))
+	_, err := authService.RemoveSessionToken(session.Get("access_token"))
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 
 	session.Clear()
 	session.Save()
@@ -166,7 +169,7 @@ func LogoutPageHandler(c *gin.Context) {
 		return
 	}
 	uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
-	c.Redirect(http.StatusPermanentRedirect, uri)
+	c.Redirect(http.StatusMovedPermanently, uri)
 }
 
 var wsupgrader = &websocket.Upgrader{
