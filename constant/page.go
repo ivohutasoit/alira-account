@@ -1,6 +1,7 @@
 package constant
 
 const (
+	IdentityPage = "identity.tmpl.html"
 	IndexPage    = "index.tmpl.html"
 	LoginPage    = "login.tmpl.html"
 	ProfilePage  = "profile.tmpl.html"
