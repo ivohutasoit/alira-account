@@ -66,39 +66,44 @@ func RegisterHandler(c *gin.Context) {
 func RegisterByEmailHandler(c *gin.Context) {
 	if c.Request.Method == http.MethodGet {
 		c.HTML(http.StatusOK, constant.RegisterPage, nil)
-	} else {
-		accountService := &service.AccountService{}
-		token, err := accountService.SendRegisterToken(c.GetString("userid"), "email")
-		if err != nil {
-			if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
-				c.Header("Content-Type", "application/json")
-				c.JSON(http.StatusBadRequest, gin.H{
-					"code":   400,
-					"status": "Bad Request",
-					"error":  err.Error(),
-				})
-			} else {
-				c.HTML(http.StatusOK, constant.RegisterPage, gin.H{
-					"error": err.Error(),
-				})
-			}
-			return
-		}
+		return
+	}
 
+	accountService := &service.AccountService{}
+	data, err := accountService.SendRegisterToken(c.GetString("userid"), "email")
+	if err != nil {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":   400,
+				"status": "Bad Request",
+				"error":  err.Error(),
+			})
+		} else {
+			c.HTML(http.StatusOK, constant.RegisterPage, gin.H{
+				"error": err.Error(),
+			})
+		}
+		return
+	}
+
+	if data["status"].(string) == "SUCCESS" {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.JSONP(http.StatusOK, gin.H{
 				"code":   200,
 				"status": "OK",
 				"data": map[string]string{
-					"referer": token.Referer,
+					"referer": data["referer"].(string),
 					"next":    "activate",
 				},
 			})
 			return
 		}
+
 		c.HTML(http.StatusOK, constant.TokenPage, gin.H{
-			"referer": token.Referer,
-			"purpose": "ACTIVATION",
+			"referer": data["referer"].(string),
+			"purpose": data["purpose"].(string),
+			"message": data["message"].(string),
 		})
 	}
 }

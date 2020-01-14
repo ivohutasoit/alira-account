@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/ivohutasoit/alira/model"
 	"github.com/ivohutasoit/alira/model/domain"
 	"github.com/ivohutasoit/alira/service"
@@ -43,7 +42,7 @@ func (s *AccountService) Get(args ...interface{}) (map[interface{}]interface{}, 
 	}, nil
 }
 
-func (as *AccountService) SendRegisterToken(args ...interface{}) (*domain.Token, error) {
+func (as *AccountService) SendRegisterToken(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -71,22 +70,19 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (*domain.Token,
 	user := &domain.User{}
 	model.GetDatabase().First(user, "active = ? AND (username = ? OR email = ? OR mobile = ?)",
 		true, payload, payload, payload)
-	if user.ID != "" {
+	if user.BaseModel.ID != "" {
 		return nil, errors.New("user already exists")
 	}
 
-	tokenExist := &domain.Token{}
-	model.GetDatabase().First(tokenExist, "valid = ? AND class = ? AND referer = ?", true, "REGISTER", payload)
+	token := &domain.Token{}
+	model.GetDatabase().First(token, "valid = ? AND class = ? AND referer = ?", true, "REGISTER", payload)
 
-	if tokenExist != nil {
-		tokenExist.Valid = false
-		model.GetDatabase().Save(&tokenExist)
+	if token != nil {
+		token.Valid = false
+		model.GetDatabase().Save(&token)
 	}
 
-	token := &domain.Token{
-		BaseModel: model.BaseModel{
-			ID: uuid.New().String(),
-		},
+	token = &domain.Token{
 		Referer:     payload,
 		Class:       "REGISTER",
 		AccessToken: util.GenerateToken(6),
@@ -94,7 +90,6 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (*domain.Token,
 		NotAfter:    time.Now().Add(time.Hour * 12),
 		Valid:       true,
 	}
-	fmt.Println(token.Referer)
 	if sentTo == "email" {
 		mail := &domain.Mail{
 			From:     os.Getenv("SMTP_SENDER"),
@@ -114,7 +109,12 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (*domain.Token,
 
 	model.GetDatabase().Create(token)
 
-	return token, nil
+	return map[interface{}]interface{}{
+		"status":  "SUCCESS",
+		"purpose": token.Class,
+		"referer": token.Referer,
+		"message": "Registration token has been sent to your email",
+	}, nil
 }
 
 func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interface{}]interface{}, error) {
@@ -137,8 +137,8 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 		}
 	}
 	token := &domain.Token{}
-	model.GetDatabase().First(token, "access_token = ? AND referer = ? AND valid = ?",
-		code, referer, true)
+	model.GetDatabase().First(token, "access_token = ? AND referer = ? AND valid = ? AND class = ?",
+		code, referer, true, "REGISTER")
 	if token == nil {
 		return nil, errors.New("invalid token")
 	}

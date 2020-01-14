@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,33 +19,33 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 	if len(args) < 1 {
 		return nil, errors.New("not enough parameters")
 	}
-	userid, ok := args[0].(string)
+	param, ok := args[0].(string)
 	if !ok {
 		return nil, errors.New("plain text parameter not type string")
 	}
+	userid := strings.ToLower(param)
 	user := &domain.User{}
 	model.GetDatabase().First(user, "(username = ? OR email = ? OR mobile = ?) and active = ?",
 		userid, userid, userid, true)
 	if user.BaseModel.ID == "" {
-		return nil, errors.New("invalid user or password")
+		return nil, errors.New("invalid user")
 	}
 
-	tokenExist := &domain.Token{}
-	model.GetDatabase().First(tokenExist, "valid = ? AND class = ? AND user_id = ?",
+	token := &domain.Token{}
+	model.GetDatabase().First(token, "valid = ? AND class = ? AND user_id = ?",
 		true, "LOGIN", user.ID)
-	if tokenExist.BaseModel.ID != "" {
-		tokenExist.Valid = false
-		model.GetDatabase().Save(&tokenExist)
+	if token.BaseModel.ID != "" {
+		token.Valid = false
+		model.GetDatabase().Save(&token)
 	}
 
-	token := &domain.Token{
+	token = &domain.Token{
 		BaseModel: model.BaseModel{
 			ID: uuid.New().String(),
 		},
 		Class:       "LOGIN",
 		Referer:     user.BaseModel.ID,
 		UserID:      user.BaseModel.ID,
-		User:        *user,
 		AccessToken: util.GenerateToken(6),
 		NotBefore:   time.Now(),
 		NotAfter:    time.Now().Add(time.Minute * 5),
@@ -68,7 +69,7 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 		return nil, err
 	}
 	return map[interface{}]interface{}{
-		"status":  "success",
+		"status":  "SUCCESS",
 		"purpose": "LOGIN",
 		"referer": user.BaseModel.ID,
 		"message": "Token login has been sent to your email",

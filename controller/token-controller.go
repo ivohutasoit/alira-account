@@ -46,7 +46,7 @@ func VerifyTokenHandler(c *gin.Context) {
 			if err != nil {
 				c.HTML(http.StatusUnauthorized, constant.TokenPage, gin.H{
 					"referer": req.Referer,
-					"purpose": "LOGIN",
+					"purpose": req.Purpose,
 					"error":   err.Error(),
 				})
 				return
@@ -75,13 +75,13 @@ func VerifyTokenHandler(c *gin.Context) {
 				uri, _ = util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
 			}
 			c.Redirect(http.StatusMovedPermanently, uri)
-		} else if req.Purpose == "ACTIVATION" {
+		} else if req.Purpose == "REGISTER" {
 			accService := &service.AccountService{}
 			data, err = accService.ActivateRegistration(req.Referer, req.Token)
 			if err != nil {
 				c.HTML(http.StatusUnauthorized, constant.TokenPage, gin.H{
 					"referer": req.Referer,
-					"purpose": "ACTIVATION",
+					"purpose": req.Purpose,
 					"error":   err.Error(),
 				})
 				return
@@ -103,6 +103,7 @@ func VerifyTokenHandler(c *gin.Context) {
 			session := sessions.Default(c)
 			session.Set("access_token", data["access_token"].(string))
 			session.Set("refresh_token", data["refresh_token"].(string))
+			session.Set("required_profile", true)
 			session.Save()
 
 			uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/account/profile?action=complete", false)
