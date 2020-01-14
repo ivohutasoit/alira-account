@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"time"
 
 	"github.com/ivohutasoit/alira/model"
 	"github.com/ivohutasoit/alira/model/domain"
@@ -43,7 +44,7 @@ func (s *IdentityService) CreateNationIdentity(args ...interface{}) (map[interfa
 		identity = &domain.Identity{
 			Class:  "NATION",
 			UserID: user.BaseModel.ID,
-			Code:   util.GenerateToken(16),
+			Code:   util.GenerateNationalCode(args[4].(string), args[5].(time.Time)),
 		}
 		model.GetDatabase().Create(&identity)
 	}

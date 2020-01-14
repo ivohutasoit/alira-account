@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"reflect"
@@ -24,9 +25,9 @@ func IdentityHandler(c *gin.Context) {
 	type Request struct {
 		Document       string    `form:"document" json:"document" xml:"document" binding:"required"`
 		NationID       string    `form:"nation_id" json:"nation_id" xml:"nation_id" binding:"required"`
-		Fullname       string    `form:"fullname" bson:"fullname" xml:"fullname" binding:"required"`
-		BirthPlace     string    `form:"birth_place" bson:"birth_place" xml:"birth_place"`
-		BirthDate      time.Time `form:"birth_date" bson:"birth_date" xml:"birth_date" time_format:"2006-01-02"`
+		Fullname       string    `form:"fullname" json:"fullname" xml:"fullname" binding:"required"`
+		BirthPlace     string    `form:"birth_place" json:"birth_place" xml:"birth_place"`
+		BirthDate      string    `form:"birth_date" json:"birth_date" xml:"birth_date"`
 		Address        string    `form:"address" json:"address" xml:"address"`
 		City           string    `form:"city" json:"city" xml:"city"`
 		State          string    `form:"state" json:"state" xml:"state"`
@@ -57,6 +58,14 @@ func IdentityHandler(c *gin.Context) {
 				(req.Document == "PASSPORT" && len(req.NationID) != 8) {
 				structLevel.ReportError(reflect.ValueOf(req.NationID), "NationID", "nation_id", "nation_id", "")
 			}*/
+			if req.BirthDate == "" {
+				structLevel.ReportError(reflect.ValueOf(req.BirthDate), "BirthDate", "birth_date", "birth_date", "")
+			} else {
+				parse, _ := time.Parse("2006-01-02", req.BirthDate)
+				if parse.IsZero() {
+					structLevel.ReportError(reflect.ValueOf(req.BirthDate), "BirthDate", "birth_date", "birth_date", "")
+				}
+			}
 			if req.Document == "E-KTP" {
 				if len(req.NationID) != 16 {
 					structLevel.ReportError(reflect.ValueOf(req.NationID), "NationID", "nation_id", "nation_id", "")
@@ -97,10 +106,11 @@ func IdentityHandler(c *gin.Context) {
 			return
 		}
 	}
-
+	tokens := strings.Split(c.Request.Header.Get("Authorization"), " ")
+	fmt.Println(tokens[1])
 	service := &service.IdentityService{}
 	data, err := service.CreateNationIdentity(req.Document, c.GetString("userid"),
-		req.NationID, req.Fullname, req.Country)
+		req.NationID, req.Fullname, req.Country, req.BirthDate)
 	if err != nil {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.Header("Content-Type", "application/json")
