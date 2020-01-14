@@ -145,31 +145,53 @@ func RefreshTokenHandler(c *gin.Context) {
 	c.HTML(http.StatusOK, constant.IndexPage, nil)
 }
 
-// TODO
 func LogoutPageHandler(c *gin.Context) {
-	redirect := c.Query("redirect")
-	session := sessions.Default(c)
-
 	authService := &service.AuthService{}
-	_, err := authService.RemoveSessionToken(session.Get("access_token"))
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	session.Clear()
-	session.Save()
-
-	if redirect != "" {
-		uri, err := util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
+	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+		tokens := strings.Split(c.Request.Header.Get("Authorization"), " ")
+		data, err := authService.RemoveSessionToken(tokens[1])
 		if err != nil {
-			fmt.Printf("Error: %s", err.Error())
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":   400,
+				"status": "Bad Request",
+				"error":  err.Error(),
+			})
 			return
 		}
-		c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
-		return
+
+		if data["status"].(string) == "success" {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusOK, gin.H{
+				"code":    200,
+				"status":  "OK",
+				"message": data["message"].(string),
+			})
+			return
+		}
+	} else {
+		redirect := c.Query("redirect")
+		session := sessions.Default(c)
+		_, err := authService.RemoveSessionToken(session.Get("access_token"))
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+
+		session.Clear()
+		session.Save()
+
+		if redirect != "" {
+			uri, err := util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
+			if err != nil {
+				fmt.Printf("Error: %s", err.Error())
+				return
+			}
+			c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
+			return
+		}
+		uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
+		c.Redirect(http.StatusMovedPermanently, uri)
 	}
-	uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
-	c.Redirect(http.StatusMovedPermanently, uri)
 }
 
 var wsupgrader = &websocket.Upgrader{
