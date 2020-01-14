@@ -5,6 +5,7 @@ import (
 
 	"github.com/ivohutasoit/alira/model"
 	"github.com/ivohutasoit/alira/model/domain"
+	"github.com/ivohutasoit/alira/util"
 )
 
 type IdentityService struct{}
@@ -29,25 +30,38 @@ func (s *IdentityService) CreateNationIdentity(args ...interface{}) (map[interfa
 		return nil, errors.New("invalid user")
 	}
 
-	nIdentity := &domain.NationalIdentity{}
-	model.GetDatabase().First(nIdentity, "document = ?", document)
-	if nIdentity.BaseModel.ID != "" {
-		return nil, errors.New("identity has used other user")
-	}
-
 	identity := &domain.Identity{}
 	model.GetDatabase().First(identity, "user_id = ?", userid)
+
+	nIdentity := &domain.NationalIdentity{}
 	if identity.BaseModel.ID != "" {
-		return nil, errors.New("user has been identified")
+		model.GetDatabase().First(nIdentity, "document = ? AND nation_id = ?", document, args[2].(string))
+		if nIdentity.BaseModel.ID != "" {
+			return nil, errors.New("identity has used other user")
+		}
+	} else {
+		identity = &domain.Identity{
+			Class:  "NATION",
+			UserID: user.BaseModel.ID,
+			Code:   util.GenerateToken(16),
+		}
+		model.GetDatabase().Create(&identity)
 	}
 
-	identity = &domain.Identity{
-		Class:  "NATION",
-		UserID: user.BaseModel.ID,
-	}
 	nIdentity = &domain.NationalIdentity{
-		UserID: user.BaseModel.ID,
+		UserID:      user.BaseModel.ID,
+		IdentityID:  identity.BaseModel.ID,
+		Document:    document,
+		NationID:    args[2].(string),
+		Fullname:    args[3].(string),
+		Country:     args[4].(string),
+		Nationality: "INDONESIAN",
 	}
+	model.GetDatabase().Create(&nIdentity)
 
-	return nil, nil
+	return map[interface{}]interface{}{
+		"status":        "SUCCESS",
+		"message":       "Your identity has been created",
+		"identity_code": identity.Code,
+	}, nil
 }
