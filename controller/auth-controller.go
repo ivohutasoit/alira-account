@@ -71,6 +71,12 @@ func LoginHandler(c *gin.Context) {
 	data, err := auth.SendLoginToken(req.UserID)
 	if err != nil {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":   400,
+				"status": "Bad Request",
+				"error":  err.Error(),
+			})
 			return
 		}
 		c.HTML(http.StatusBadRequest, constant.LoginPage, gin.H{
@@ -88,8 +94,9 @@ func LoginHandler(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"code":   200,
 				"status": "OK",
+				"message": data["message"].(string),
 				"data": map[string]string{
-					"message": data["message"].(string),
+					"referer":  data["referer"].(string),
 				},
 			})
 			return
