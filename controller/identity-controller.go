@@ -16,13 +16,17 @@ func IdentityHandler(c *gin.Context) {
 	}
 
 	type Request struct {
-		NationID   string `form:"nation_id" json:"nation_id" xml:"nation_id" binding:"required"`
-		Address    string `form:"address" json:"address" xml:"address" binding:"required"`
-		City       string `form:"city" json:"city" xml:"city" binding:"required"`
-		State      string `form:"state" json:"state" xml:"state" binding:"required"`
-		Province   string `form:"province" json:"province" xml:"provice" binding:"required"`
-		Country    string `form:"country" json:"country" xml:"country" binding:"required"`
-		PostalCode string `form:"postal_code" json:"postal_code" xml:"postal_code" binding:"required"`
+		Document      string `form:"document" json:"document" xml:"document" binding:"required"`
+		NationID      string `form:"nation_id" json:"nation_id" xml:"nation_id" binding:"required"`
+		Address       string `form:"address" json:"address" xml:"address"`
+		City          string `form:"city" json:"city" xml:"city"`
+		State         string `form:"state" json:"state" xml:"state"`
+		Province      string `form:"province" json:"province" xml:"province"`
+		Country       string `form:"country" json:"country" xml:"country" binding:"required"`
+		PostalCode    string `form:"postal_code" json:"postal_code" xml:"postal_code"`
+		BloodType     string `form:"blood_type" json:"blood_type" xml:"blood_type"`
+		Religion      string `form:"religion" json:"religion" xml:"religion"`
+		MarriedStatus string `form:"married_status" json:"married_status" xml:"married_status"`
 	}
 
 	var req Request
@@ -42,5 +46,18 @@ func IdentityHandler(c *gin.Context) {
 		}
 	}
 
-	
+	if req.Document != "E-KTP" || req.Document != "PASSPORT" {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":   400,
+				"status": "Bad Request",
+				"error":  "invalid document type",
+			})
+			return
+		} else {
+			return
+		}
+	}
+
 }
