@@ -181,7 +181,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 	profile.ID = user.BaseModel.ID
 	model.GetDatabase().Create(&profile)
 
-	subscribe.UserID = user.BaseModel.ID
+	subscribe.SubscriberID = user.BaseModel.ID
 	model.GetDatabase().Create(&subscribe)
 
 	sessionToken.UserID = user.BaseModel.ID
