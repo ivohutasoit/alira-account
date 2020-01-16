@@ -24,7 +24,8 @@ func init() {
 		&domain.Profile{},
 		&domain.Subscribe{},
 		&domain.Token{},
-		&domain.Identity{})
+		&domain.Identity{},
+		&domain.NationalIdentity{})
 }
 
 func main() {
@@ -91,6 +92,7 @@ func main() {
 			apiauth.POST("/login", controller.LoginHandler)
 			apiauth.POST("/refresh", controller.RefreshTokenHandler)
 			apiauth.POST("/verify", controller.VerifyQrcodeHandler)
+			apiauth.POST("/logout", controller.LogoutPageHandler)
 		}
 		apiaccount := api.Group("/account")
 		{

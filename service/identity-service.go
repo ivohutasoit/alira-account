@@ -64,5 +64,6 @@ func (s *IdentityService) CreateNationIdentity(args ...interface{}) (map[interfa
 		"status":        "SUCCESS",
 		"message":       "Your identity has been created",
 		"identity_code": identity.Code,
+		"userid":        user.BaseModel.ID,
 	}, nil
 }
