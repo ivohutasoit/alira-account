@@ -155,7 +155,6 @@ func ProfileHandler(c *gin.Context) {
 		return
 	}
 	type Request struct {
-		UserID    string `form:"userid" json:"userid" xml:"userid" binding:"required"`
 		Username  string `form:"username" json:"username" xml:"username" binding:"required"`
 		Mobile    string `form:"mobile" json:"mobile" xml:"mobile" binding:"required"`
 		FirstName string `form:"first_name" json:"first_name" xml:"first_name" binding:"required"`
@@ -189,7 +188,7 @@ func ProfileHandler(c *gin.Context) {
 			return
 		}
 	}
-	data, err = accService.SaveProfile(req.UserID, req.Username, req.Mobile, req.FirstName, req.LastName, req.Gender)
+	data, err = accService.SaveProfile(c.GetString("userid"), req.Username, req.Mobile, req.FirstName, req.LastName, req.Gender)
 	if err != nil {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.Header("Content-Type", "application/json")
