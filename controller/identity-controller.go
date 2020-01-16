@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"reflect"
@@ -106,11 +105,23 @@ func IdentityHandler(c *gin.Context) {
 			return
 		}
 	}
-	tokens := strings.Split(c.Request.Header.Get("Authorization"), " ")
-	fmt.Println(tokens[1])
+
+	date, err := time.Parse("2006-01-02", req.BirthDate)
+	if err != nil {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":   400,
+				"status": "Bad Request",
+				"error":  err.Error(),
+			})
+			return
+		}
+	}
+
 	service := &service.IdentityService{}
 	data, err := service.CreateNationIdentity(req.Document, c.GetString("userid"),
-		req.NationID, req.Fullname, req.Country, req.BirthDate)
+		req.NationID, req.Fullname, strings.ToUpper(req.Country), date)
 	if err != nil {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.Header("Content-Type", "application/json")
