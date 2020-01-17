@@ -152,7 +152,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 
 	subscribe := &domain.Subscribe{
 		Code:      "BASIC",
-		Purpose:   "Basic Account Usage",
+		Name:      "Basic Account",
 		Signature: util.GenerateToken(16),
 		NotBefore: time.Now(),
 		AgreedAt:  time.Now(),
@@ -232,13 +232,13 @@ func (s *AccountService) SaveProfile(args ...interface{}) (map[interface{}]inter
 	}
 	user := &domain.User{}
 	model.GetDatabase().First(user, "id = ? AND active = ?", userid, true)
-	profile := &domain.Profile{}
-	model.GetDatabase().First(profile, "id = ?", userid)
 
-	if user == nil {
+	if user.BaseModel.ID == "" {
 		return nil, errors.New("invalid user")
 	}
 
+	profile := &domain.Profile{}
+	model.GetDatabase().First(profile, "id = ?", user.BaseModel.ID)
 	if profile == nil {
 		return nil, errors.New("invalid user profile")
 	}
