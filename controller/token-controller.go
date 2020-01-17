@@ -115,5 +115,44 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 }
 
 func (ctrl *TokenController) DetailHandler(c *gin.Context) {
+	// 1. Check whitelist url
+	data := os.Getenv("IP_WHITELIST")
+	if data == "" {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"code":    http.StatusForbidden,
+				"status":  http.StatusText(http.StatusForbidden),
+				"message": "Permission denied",
+			})
+			return
+		}
+	}
 
+	hasAccess := false
+	whitelist := strings.Split(data, ";")
+	for _, item := range whitelist {
+		if item == c.ClientIP() {
+			hasAccess = true
+			break
+		}
+	}
+
+	if !hasAccess {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"code":    http.StatusForbidden,
+				"status":  http.StatusText(http.StatusForbidden),
+				"message": "Permission denied",
+			})
+			return
+		}
+	}
+
+	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"status":  http.StatusText(http.StatusOK),
+			"message": "Authenticated user",
+		})
+	}
 }
