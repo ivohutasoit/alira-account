@@ -12,7 +12,9 @@ import (
 	"github.com/ivohutasoit/alira/util"
 )
 
-func VerifyTokenHandler(c *gin.Context) {
+type TokenController struct{}
+
+func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 	if c.Request.Method == http.MethodPost {
 		type Request struct {
 			Referer string `form:"referer" json:"referer" xml:"referer" binding:"required"`
@@ -110,4 +112,8 @@ func VerifyTokenHandler(c *gin.Context) {
 			c.Redirect(http.StatusMovedPermanently, uri)
 		}
 	}
+}
+
+func (ctrl *TokenController) DetailHandler(c *gin.Context) {
+
 }

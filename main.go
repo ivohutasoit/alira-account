@@ -50,6 +50,8 @@ func main() {
 	router.LoadHTMLGlob("views/*/*.tmpl.html")
 	router.Static("/static", "static")
 
+	tokenController := &controller.TokenController{}
+
 	web := router.Group("")
 	{
 		web.Use(middleware.SessionHeaderRequired(os.Getenv("URL_LOGIN")))
@@ -80,7 +82,7 @@ func main() {
 		}
 		webtoken := web.Group("/token")
 		{
-			webtoken.POST("/verify", controller.VerifyTokenHandler)
+			webtoken.POST("/verify", tokenController.VerifyHandler)
 		}
 	}
 
@@ -102,7 +104,8 @@ func main() {
 		}
 		apitoken := api.Group("token")
 		{
-			apitoken.POST("verify", controller.VerifyTokenHandler)
+			apitoken.POST("verify", tokenController.VerifyHandler)
+			apitoken.POST("detail", tokenController.DetailHandler)
 		}
 	}
 
