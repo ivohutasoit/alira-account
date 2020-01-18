@@ -153,7 +153,10 @@ func (ctrl *TokenController) DetailHandler(c *gin.Context) {
 			"code":    http.StatusOK,
 			"status":  http.StatusText(http.StatusOK),
 			"message": "Authenticated user",
-			"data":    c.ClientIP(),
+			"data": map[string]string{
+				"client": c.ClientIP(),
+				"host":   c.Request.URL.Host,
+			},
 		})
 	}
 }
