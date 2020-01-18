@@ -60,7 +60,7 @@ func main() {
 			flashMessage := session.Get("message")
 			session.Delete("message")
 			session.Save()
-			response, err := http.Get("http://localhost:9000/api/alpha/token")
+			response, err := http.Get("https://aliraaccount.herokuapp.com/api/alpha/token")
 			if err != nil {
 				c.HTML(http.StatusOK, constant.IndexPage, gin.H{
 					"userid":        c.GetString("userid"),
