@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/joho/godotenv"
+
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/controller"
 	"github.com/ivohutasoit/alira/middleware"
@@ -27,7 +29,7 @@ import (
 }*/
 
 func main() {
-	//err := godotenv.Load()
+	err := godotenv.Load()
 	if err != nil {
 		fmt.Println("error loading .env file")
 	}
