@@ -9,8 +9,6 @@ import (
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/controller"
 	"github.com/ivohutasoit/alira/middleware"
-	"github.com/ivohutasoit/alira/model"
-	"github.com/ivohutasoit/alira/model/domain"
 	"github.com/joho/godotenv"
 
 	"github.com/gin-contrib/cors"
@@ -20,14 +18,14 @@ import (
 	_ "github.com/heroku/x/hmetrics/onload"
 )
 
-func init() {
+/*func init() {
 	model.GetDatabase().Debug().AutoMigrate(&domain.User{},
 		&domain.Profile{},
 		&domain.Subscribe{},
 		&domain.Token{},
 		&domain.Identity{},
 		&domain.NationalIdentity{})
-}
+}*/
 
 func main() {
 	err := godotenv.Load()
