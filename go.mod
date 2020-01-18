@@ -20,7 +20,7 @@ require (
 	github.com/gorilla/websocket v1.4.1
 	github.com/heroku/x v0.0.15
 	github.com/infobloxopen/protoc-gen-gorm v0.18.0
-	github.com/ivohutasoit/alira v0.0.0-20200114023811-34cd99a9b352
+	github.com/ivohutasoit/alira v0.0.1
 	github.com/jinzhu/gorm v1.9.12 // indirect
 	github.com/jinzhu/now v1.1.1 // indirect
 	github.com/joho/godotenv v1.3.0
