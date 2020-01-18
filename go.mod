@@ -11,7 +11,7 @@ require (
 	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/gorilla/websocket v1.4.1
 	github.com/heroku/x v0.0.14
-	github.com/ivohutasoit/alira v0.0.0-20191209093612-16cb26fd70c6
+	github.com/ivohutasoit/alira v0.0.1
 	github.com/joho/godotenv v1.3.0
 	github.com/json-iterator/go v1.1.8 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
