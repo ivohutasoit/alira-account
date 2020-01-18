@@ -18,7 +18,6 @@ require (
 	github.com/gorilla/sessions v1.2.0 // indirect
 	github.com/gorilla/websocket v1.4.1
 	github.com/heroku/x v0.0.15
-	github.com/infobloxopen/protoc-gen-gorm v0.18.0
 	github.com/ivohutasoit/alira v0.0.1
 	github.com/jinzhu/gorm v1.9.12 // indirect
 	github.com/jinzhu/now v1.1.1 // indirect
