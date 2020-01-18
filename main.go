@@ -2,14 +2,13 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/controller"
 	"github.com/ivohutasoit/alira/middleware"
-	"github.com/ivohutasoit/alira/model"
-	"github.com/ivohutasoit/alira/model/domain"
 	"github.com/joho/godotenv"
 
 	"github.com/gin-contrib/cors"
@@ -19,14 +18,14 @@ import (
 	_ "github.com/heroku/x/hmetrics/onload"
 )
 
-func init() {
+/*func init() {
 	model.GetDatabase().Debug().AutoMigrate(&domain.User{},
 		&domain.Profile{},
 		&domain.Subscribe{},
 		&domain.Token{},
 		&domain.Identity{},
 		&domain.NationalIdentity{})
-}
+}*/
 
 func main() {
 	err := godotenv.Load()
@@ -60,9 +59,19 @@ func main() {
 			flashMessage := session.Get("message")
 			session.Delete("message")
 			session.Save()
+			response, err := http.Get("http://localhost:9000/api/alpha/token/")
+			if err != nil {
+				c.HTML(http.StatusOK, constant.IndexPage, gin.H{
+					"userid":        c.GetString("userid"),
+					"flash_message": flashMessage,
+					"error":         err.Error(),
+				})
+			}
+			data, _ := ioutil.ReadAll(response.Body)
 			c.HTML(http.StatusOK, constant.IndexPage, gin.H{
 				"userid":        c.GetString("userid"),
 				"flash_message": flashMessage,
+				"data":          string(data),
 			})
 		})
 		webauth := web.Group("/auth")
@@ -102,10 +111,10 @@ func main() {
 			apiaccount.POST("/profile", controller.ProfileHandler)
 			apiaccount.POST("/identity", controller.IdentityHandler)
 		}
-		apitoken := api.Group("token")
+		apitoken := api.Group("/token")
 		{
+			apitoken.GET("", tokenController.DetailHandler)
 			apitoken.POST("verify", tokenController.VerifyHandler)
-			apitoken.POST("detail", tokenController.DetailHandler)
 		}
 	}
 
