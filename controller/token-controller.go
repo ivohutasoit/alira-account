@@ -116,7 +116,7 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 
 func (ctrl *TokenController) DetailHandler(c *gin.Context) {
 	// 1. Check whitelist url
-	data := os.Getenv("IP_WHITELIST")
+	/*data := os.Getenv("IP_WHITELIST")
 	if data == "" {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
@@ -146,13 +146,14 @@ func (ctrl *TokenController) DetailHandler(c *gin.Context) {
 			})
 			return
 		}
-	}
+	}*/
 
 	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    http.StatusOK,
 			"status":  http.StatusText(http.StatusOK),
 			"message": "Authenticated user",
+			"data":    c.ClientIP(),
 		})
 	}
 }

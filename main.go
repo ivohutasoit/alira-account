@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 
@@ -60,9 +61,19 @@ func main() {
 			flashMessage := session.Get("message")
 			session.Delete("message")
 			session.Save()
+			response, err := http.Get("http://localhost:9000/api/alpha/token")
+			if err != nil {
+				c.HTML(http.StatusOK, constant.IndexPage, gin.H{
+					"userid":        c.GetString("userid"),
+					"flash_message": flashMessage,
+					"error":         err.Error(),
+				})
+			}
+			data, _ := ioutil.ReadAll(response.Body)
 			c.HTML(http.StatusOK, constant.IndexPage, gin.H{
 				"userid":        c.GetString("userid"),
 				"flash_message": flashMessage,
+				"data":          string(data),
 			})
 		})
 		webauth := web.Group("/auth")
@@ -102,10 +113,10 @@ func main() {
 			apiaccount.POST("/profile", controller.ProfileHandler)
 			apiaccount.POST("/identity", controller.IdentityHandler)
 		}
-		apitoken := api.Group("token")
+		apitoken := api.Group("/token")
 		{
+			apitoken.GET("", tokenController.DetailHandler)
 			apitoken.POST("verify", tokenController.VerifyHandler)
-			apitoken.POST("detail", tokenController.DetailHandler)
 		}
 	}
 
