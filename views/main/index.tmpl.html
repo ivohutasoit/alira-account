@@ -5,7 +5,14 @@
   </head>
 <body>
   {{template "nav.tmpl.html" . }}
-
+  {{ if .flashMessage }}
+  <div class="alert alert-success alert-dismissible fade show" role="alert">
+    <span>{{ .flashMessage }}</span>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
+  {{ end }}
 <div class="jumbotron text-center">
   <div class="container">
     <a href="/" class="lang-logo">
@@ -58,14 +65,6 @@
       {{ .data }}
   </div>
 </div>
-{{ if .flashMessage }}
-<div class="alert alert-success alert-dismissible fade show" role="alert">
-    <span>{{ .flashMessage }}</span>
-    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-    <span aria-hidden="true">&times;</span>
-    </button>
-</div>
-{{ end }}
 {{template "footer.tmpl.html"}}
 </body>
 </html>
