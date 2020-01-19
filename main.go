@@ -1,10 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+
+	"github.com/ivohutasoit/alira/model/domain"
+
+	"github.com/joho/godotenv"
 
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/controller"
@@ -59,19 +65,26 @@ func main() {
 			flashMessage := session.Get("message")
 			session.Delete("message")
 			session.Save()
-			response, err := http.Get("http://localhost:9000/api/alpha/token/")
-			if err != nil {
-				c.HTML(http.StatusOK, constant.IndexPage, gin.H{
-					"userid":        c.GetString("userid"),
-					"flash_message": flashMessage,
-					"error":         err.Error(),
-				})
+			data := map[string]string{
+				"type":  "Bearer",
+				"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1NzkyNjYzMDgsImp0aSI6IjA5ODZlOWYxLTliYjctNDEwOS1iYTI2LWE0MjBiNmJhYTE4YiIsImlhdCI6MTU3OTE3OTkwOCwibmJmIjoxNTc5MTc5OTA4LCJVc2VySUQiOiIiLCJBZG1pbiI6ZmFsc2V9.tnN-Rt56qOn4RU1opGEHOVFp-ZAxRNH8muKRnZ-ivY4",
 			}
-			data, _ := ioutil.ReadAll(response.Body)
+			// https://tutorialedge.net/golang/consuming-restful-api-with-go/
+			payload, _ := json.Marshal(data)
+			resp, err := http.Post(os.Getenv("URL_AUTH"), "application/json", bytes.NewBuffer(payload))
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			respData, _ := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			var response domain.Response
+			json.Unmarshal(respData, &response)
 			c.HTML(http.StatusOK, constant.IndexPage, gin.H{
 				"userid":        c.GetString("userid"),
 				"flash_message": flashMessage,
-				"data":          string(data),
+				"data":          response.Data["userid"],
 			})
 		})
 		webauth := web.Group("/auth")
@@ -113,7 +126,7 @@ func main() {
 		}
 		apitoken := api.Group("/token")
 		{
-			apitoken.GET("", tokenController.DetailHandler)
+			apitoken.POST("info", tokenController.InfoHandler)
 			apitoken.POST("verify", tokenController.VerifyHandler)
 		}
 	}
