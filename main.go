@@ -8,13 +8,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/ivohutasoit/alira/model/domain"
-
-	"github.com/joho/godotenv"
-
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/controller"
 	"github.com/ivohutasoit/alira/middleware"
+	"github.com/ivohutasoit/alira/model/domain"
 	"github.com/joho/godotenv"
 
 	"github.com/gin-contrib/cors"
