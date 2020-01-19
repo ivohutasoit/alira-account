@@ -114,7 +114,7 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 	}
 }
 
-func (ctrl *TokenController) DetailHandler(c *gin.Context) {
+func (ctrl *TokenController) InfoHandler(c *gin.Context) {
 	// 1. Check whitelist url
 	/*data := os.Getenv("IP_WHITELIST")
 	if data == "" {
@@ -148,12 +148,42 @@ func (ctrl *TokenController) DetailHandler(c *gin.Context) {
 		}
 	}*/
 
+	type Request struct {
+		Type  string `form:"type" json:"type" xml:"type" binding:"required"`
+		Token string `form:"token" json:"token" xml:"token" binding:"required"`
+	}
+	var req Request
+	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"code":   http.StatusBadRequest,
+				"status": http.StatusText(http.StatusBadRequest),
+				"error":  err.Error(),
+			})
+			return
+		}
+	}
+
+	tokenService := &service.TokenService{}
+	data, err := tokenService.GetTokenInformation(req.Type, req.Token)
+	if err != nil {
+		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"code":   http.StatusBadRequest,
+				"status": http.StatusText(http.StatusBadRequest),
+				"error":  err.Error(),
+			})
+			return
+		}
+	}
+
 	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    http.StatusOK,
 			"status":  http.StatusText(http.StatusOK),
 			"message": "Authenticated user",
 			"data": map[string]string{
+				"userid": data["userid"].(string),
 				"client": c.ClientIP(),
 				"host":   c.Request.URL.Host,
 			},
