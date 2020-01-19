@@ -13,7 +13,7 @@ require (
 	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/gorilla/websocket v1.4.1
 	github.com/heroku/x v0.0.15
-	github.com/ivohutasoit/alira v0.0.0-20200118003231-3dc32ee07ace
+	github.com/ivohutasoit/alira v0.0.0-20200119114505-9015cf1c5f44
 	github.com/joho/godotenv v1.3.0
 	github.com/manucorporat/sse v0.0.0-20160126180136-ee05b128a739 // indirect
 	github.com/mattn/go-colorable v0.1.4 // indirect
