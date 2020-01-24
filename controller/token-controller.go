@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/service"
+	"github.com/ivohutasoit/alira/model/domain"
 	"github.com/ivohutasoit/alira/util"
 )
 
@@ -177,15 +178,16 @@ func (ctrl *TokenController) InfoHandler(c *gin.Context) {
 		}
 	}
 
+	user := data["user"].(domain.User)
+
 	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    http.StatusOK,
 			"status":  http.StatusText(http.StatusOK),
 			"message": "Authenticated user",
 			"data": map[string]string{
-				"userid": data["userid"].(string),
-				"client": c.ClientIP(),
-				"host":   c.Request.URL.Host,
+				"user_id":  user.BaseModel.ID,
+				"username": user.Username,
 			},
 		})
 	}

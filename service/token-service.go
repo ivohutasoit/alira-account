@@ -112,6 +112,6 @@ func (s *TokenService) GetTokenInformation(args ...interface{}) (map[interface{}
 	return map[interface{}]interface{}{
 		"status": "success",
 		"valid":  true,
-		"userid": user.BaseModel.ID,
+		"user":   user,
 	}, nil
 }
