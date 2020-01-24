@@ -1,12 +1,7 @@
 package route
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"net/http"
-	"os"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -24,30 +19,10 @@ func (route *WebRoute) Initialize(r *gin.Engine) {
 	{
 		web.GET("/", func(c *gin.Context) {
 			session := sessions.Default(c)
-			flashMessage := session.Get("message")
 			session.Delete("message")
 			session.Save()
-			data := map[string]string{
-				"type":  "Bearer",
-				"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1NzkyNjYzMDgsImp0aSI6IjA5ODZlOWYxLTliYjctNDEwOS1iYTI2LWE0MjBiNmJhYTE4YiIsImlhdCI6MTU3OTE3OTkwOCwibmJmIjoxNTc5MTc5OTA4LCJVc2VySUQiOiIiLCJBZG1pbiI6ZmFsc2V9.tnN-Rt56qOn4RU1opGEHOVFp-ZAxRNH8muKRnZ-ivY4",
-			}
-			// https://tutorialedge.net/golang/consuming-restful-api-with-go/
-			payload, _ := json.Marshal(data)
-			resp, err := http.Post(os.Getenv("URL_AUTH"), "application/json", bytes.NewBuffer(payload))
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			respData, _ := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			var response domain.Response
-			json.Unmarshal(respData, &response)
-			c.HTML(http.StatusOK, constant.IndexPage, gin.H{
-				"userid":        c.GetString("userid"),
-				"flash_message": flashMessage,
-				"data":          response.Data["userid"],
-			})
+			domain.Page["flash_message"] = session.Get("message")
+			c.HTML(http.StatusOK, constant.IndexPage, domain.Page)
 		})
 
 		webauth := web.Group("/auth")
