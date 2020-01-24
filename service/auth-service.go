@@ -94,6 +94,7 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 	if err != nil {
 		return nil, err
 	}
+
 	return map[interface{}]interface{}{
 		"status":  "SUCCESS",
 		"purpose": "LOGIN",
@@ -132,6 +133,13 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 		return nil, errors.New("invalid token")
 	}
 
+	user := &domain.User{}
+	alira.GetDatabase().First(user, "id = ? AND active = ?",
+		userid, true)
+	if user.BaseModel.ID == "" {
+		return nil, errors.New("invalid user")
+	}
+
 	now := time.Now()
 	expired := now.AddDate(0, 0, 1)
 
@@ -154,6 +162,12 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 
 	token.Valid = false
 	alira.GetDatabase().Save(&token)
+
+	if user.Username == "" {
+		data["profile"] = "required"
+	} else {
+		data["profile"] = "completed"
+	}
 
 	return data, nil
 }

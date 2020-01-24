@@ -83,7 +83,7 @@ func LoginHandler(c *gin.Context) {
 	}
 	status := data["status"].(string)
 
-	if status == "success" {
+	if status == "SUCCESS" {
 		if api {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusOK, gin.H{
@@ -103,7 +103,6 @@ func LoginHandler(c *gin.Context) {
 		})
 		return
 	}
-	c.HTML(http.StatusOK, constant.LoginPage, nil)
 }
 
 func RefreshTokenHandler(c *gin.Context) {
@@ -172,6 +171,7 @@ func LogoutPageHandler(c *gin.Context) {
 			return
 		}
 	} else {
+		fmt.Println("TESTING")
 		redirect := c.Query("redirect")
 		session := sessions.Default(c)
 		_, err := authService.RemoveSessionToken(session.Get("access_token"))
@@ -202,54 +202,58 @@ var wsupgrader = &websocket.Upgrader{
 }
 
 func GenerateImageQrcodeHandler(c *gin.Context) {
-	var png []byte
-	code := c.Param("code")
+	if c.Request.Method == http.MethodGet {
+		var png []byte
+		code := c.Query("code")
 
-	c.Writer.Header().Set("Content-Type", "image/png")
-	png, err := qrcode.Encode(code, qrcode.Medium, 256)
-	if err != nil {
-		fmt.Printf("Error: %s", err.Error())
+		c.Writer.Header().Set("Content-Type", "image/png")
+		png, err := qrcode.Encode(code, qrcode.Medium, 256)
+		if err != nil {
+			fmt.Printf("Error: %s", err.Error())
+		}
+		c.Writer.Write(png)
 	}
-	c.Writer.Write(png)
 }
 
 func StartSocketHandler(c *gin.Context) {
-	userAgent := c.Request.Header["User-Agent"][0]
-	code := c.Param("code")
-	decrypted, err := util.Decrypt(code, os.Getenv("SECRET_KEY"))
-	if err != nil {
-		fmt.Printf("Error: %s", err.Error())
-	}
-	socket, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		fmt.Printf("Error while upgrading socket %v", err.Error())
-		return
-	}
-
-	if model.Sockets[decrypted].Status != 1 {
-		defer socket.Close()
-		err := socket.WriteMessage(websocket.TextMessage, []byte("Token is not active"))
+	if c.Request.Method == http.MethodGet {
+		userAgent := c.Request.Header["User-Agent"][0]
+		code := c.Query("code")
+		decrypted, err := util.Decrypt(code, os.Getenv("SECRET_KEY"))
 		if err != nil {
+			fmt.Printf("Error: %s", err.Error())
+		}
+		socket, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			fmt.Printf("Error while upgrading socket %v", err.Error())
 			return
 		}
-	}
-	loginSocket := model.Sockets[decrypted]
-	model.Sockets[decrypted] = model.LoginSocket{
-		Redirect:  loginSocket.Redirect,
-		UserAgent: userAgent,
-		Socket:    socket,
-	}
-	for {
-		mt, msg, err := socket.ReadMessage()
-		if err != nil {
-			fmt.Printf("Error while receiving message %v", err.Error())
-			break
-		}
-		message := "Received " + string(msg)
 
-		if err = socket.WriteMessage(mt, []byte(message)); err != nil {
-			fmt.Printf("Error while sending message %v", err.Error())
-			break
+		if model.Sockets[decrypted].Status != 1 {
+			defer socket.Close()
+			err := socket.WriteMessage(websocket.TextMessage, []byte("Token is not active"))
+			if err != nil {
+				return
+			}
+		}
+		loginSocket := model.Sockets[decrypted]
+		model.Sockets[decrypted] = model.LoginSocket{
+			Redirect:  loginSocket.Redirect,
+			UserAgent: userAgent,
+			Socket:    socket,
+		}
+		for {
+			mt, msg, err := socket.ReadMessage()
+			if err != nil {
+				fmt.Printf("Error while receiving message %v", err.Error())
+				break
+			}
+			message := "Received " + string(msg)
+
+			if err = socket.WriteMessage(mt, []byte(message)); err != nil {
+				fmt.Printf("Error while sending message %v", err.Error())
+				break
+			}
 		}
 	}
 }
