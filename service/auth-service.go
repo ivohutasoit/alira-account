@@ -7,13 +7,39 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ivohutasoit/alira/model"
+	"github.com/ivohutasoit/alira-account/model"
+	alira "github.com/ivohutasoit/alira/model"
 	"github.com/ivohutasoit/alira/model/domain"
 	"github.com/ivohutasoit/alira/service"
 	"github.com/ivohutasoit/alira/util"
 )
 
 type AuthService struct{}
+
+func (s *AuthService) GenerateLoginSocket(args ...interface{}) (map[interface{}]interface{}, error) {
+	if len(args) < 1 {
+		return nil, errors.New("not enough parameters")
+	}
+	param, ok := args[0].(string)
+	if !ok {
+		return nil, errors.New("plain text parameter not type string")
+	}
+
+	code := util.GenerateQrcode(16)
+
+	encrypted, err := util.Encrypt(code, os.Getenv("SECRET_KEY"))
+	if err != nil {
+		return nil, err
+	}
+	model.Sockets[code] = model.LoginSocket{
+		Redirect: param,
+		Status:   1,
+	}
+
+	return map[interface{}]interface{}{
+		"code": encrypted,
+	}, nil
+}
 
 func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 1 {
@@ -25,22 +51,22 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 	}
 	userid := strings.ToLower(param)
 	user := &domain.User{}
-	model.GetDatabase().First(user, "(username = ? OR email = ? OR mobile = ?) and active = ?",
+	alira.GetDatabase().First(user, "(username = ? OR email = ? OR mobile = ?) and active = ?",
 		userid, userid, userid, true)
 	if user.BaseModel.ID == "" {
 		return nil, errors.New("invalid user")
 	}
 
 	token := &domain.Token{}
-	model.GetDatabase().First(token, "valid = ? AND class = ? AND user_id = ?",
+	alira.GetDatabase().First(token, "valid = ? AND class = ? AND user_id = ?",
 		true, "LOGIN", user.ID)
 	if token.BaseModel.ID != "" {
 		token.Valid = false
-		model.GetDatabase().Save(&token)
+		alira.GetDatabase().Save(&token)
 	}
 
 	token = &domain.Token{
-		BaseModel: model.BaseModel{
+		BaseModel: alira.BaseModel{
 			ID: uuid.New().String(),
 		},
 		Class:       "LOGIN",
@@ -51,7 +77,7 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 		NotAfter:    time.Now().Add(time.Minute * 5),
 		Valid:       true,
 	}
-	model.GetDatabase().Create(token)
+	alira.GetDatabase().Create(token)
 	mail := &domain.Mail{
 		From:     os.Getenv("SMTP_SENDER"),
 		To:       []string{user.Email},
@@ -100,7 +126,7 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 		}
 	}
 	token := &domain.Token{}
-	model.GetDatabase().First(token, "access_token = ? AND user_id = ? AND valid = ?",
+	alira.GetDatabase().First(token, "access_token = ? AND user_id = ? AND valid = ?",
 		code, userid, true)
 	if token == nil {
 		return nil, errors.New("invalid token")
@@ -124,10 +150,10 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 		NotAfter:     expired,
 		Valid:        true,
 	}
-	model.GetDatabase().Create(&sessionToken)
+	alira.GetDatabase().Create(&sessionToken)
 
 	token.Valid = false
-	model.GetDatabase().Save(&token)
+	alira.GetDatabase().Save(&token)
 
 	return data, nil
 }
@@ -156,7 +182,7 @@ func (s *AuthService) GenerateRefreshToken(args ...interface{}) (map[interface{}
 		}
 	}
 	token := &domain.Token{}
-	model.GetDatabase().First(token, "refresh_token = ? AND user_id = ? AND valid = ?",
+	alira.GetDatabase().First(token, "refresh_token = ? AND user_id = ? AND valid = ?",
 		refreshToken, userid, true)
 	if token == nil {
 		return nil, errors.New("invalid refresh token")
@@ -179,10 +205,10 @@ func (s *AuthService) GenerateRefreshToken(args ...interface{}) (map[interface{}
 		NotAfter:     expired,
 		Valid:        true,
 	}
-	model.GetDatabase().Create(sessionToken)
+	alira.GetDatabase().Create(sessionToken)
 
 	token.Valid = false
-	model.GetDatabase().Update(token)
+	alira.GetDatabase().Update(token)
 
 	return data, nil
 }
@@ -198,13 +224,13 @@ func (s *AuthService) RemoveSessionToken(args ...interface{}) (map[interface{}]i
 	}
 
 	token := &domain.Token{}
-	model.GetDatabase().First(token, "access_token = ? AND valid = ?", accessToken, true)
+	alira.GetDatabase().First(token, "access_token = ? AND valid = ?", accessToken, true)
 	if token == nil {
 		return nil, errors.New("invalid token")
 	}
 
 	token.Valid = false
-	model.GetDatabase().Save(&token)
+	alira.GetDatabase().Save(&token)
 
 	return map[interface{}]interface{}{
 		"status":  "success",

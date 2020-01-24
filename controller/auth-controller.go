@@ -22,20 +22,15 @@ import (
 func LoginHandler(c *gin.Context) {
 	redirect := c.Query("redirect")
 
-	code := util.GenerateQrcode(16)
-
-	encrypted, err := util.Encrypt(code, os.Getenv("SECRET_KEY"))
+	auth := &service.AuthService{}
+	socket, err := auth.GenerateLoginSocket(redirect)
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
-	}
-	model.Sockets[code] = model.LoginSocket{
-		Redirect: redirect,
-		Status:   1,
 	}
 
 	if c.Request.Method == http.MethodGet {
 		c.HTML(http.StatusOK, constant.LoginPage, gin.H{
-			"code":     encrypted,
+			"code":     socket["code"].(string),
 			"redirect": redirect,
 		})
 		return
@@ -45,8 +40,9 @@ func LoginHandler(c *gin.Context) {
 		UserID string `form:"userid" json:"userid" xml:"userid"  binding:"required"`
 	}
 
+	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
 	var req Request
-	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+	if api {
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -59,7 +55,7 @@ func LoginHandler(c *gin.Context) {
 	} else {
 		if err := c.ShouldBind(&req); err != nil {
 			c.HTML(http.StatusUnauthorized, constant.IndexPage, gin.H{
-				"code":     encrypted,
+				"code":     socket["code"].(string),
 				"redirect": redirect,
 				"error":    err.Error(),
 			})
@@ -67,10 +63,9 @@ func LoginHandler(c *gin.Context) {
 		}
 	}
 
-	auth := &service.AuthService{}
 	data, err := auth.SendLoginToken(req.UserID)
 	if err != nil {
-		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+		if api {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusBadRequest, gin.H{
 				"code":   400,
@@ -80,7 +75,7 @@ func LoginHandler(c *gin.Context) {
 			return
 		}
 		c.HTML(http.StatusBadRequest, constant.LoginPage, gin.H{
-			"code":     encrypted,
+			"code":     socket["code"].(string),
 			"redirect": redirect,
 			"error":    err.Error(),
 		})
@@ -89,14 +84,14 @@ func LoginHandler(c *gin.Context) {
 	status := data["status"].(string)
 
 	if status == "success" {
-		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+		if api {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusOK, gin.H{
-				"code":   200,
-				"status": "OK",
+				"code":    200,
+				"status":  "OK",
 				"message": data["message"].(string),
 				"data": map[string]string{
-					"referer":  data["referer"].(string),
+					"referer": data["referer"].(string),
 				},
 			})
 			return
