@@ -22,20 +22,15 @@ import (
 func LoginHandler(c *gin.Context) {
 	redirect := c.Query("redirect")
 
-	code := util.GenerateQrcode(16)
-
-	encrypted, err := util.Encrypt(code, os.Getenv("SECRET_KEY"))
+	auth := &service.AuthService{}
+	socket, err := auth.GenerateLoginSocket(redirect)
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
-	}
-	model.Sockets[code] = model.LoginSocket{
-		Redirect: redirect,
-		Status:   1,
 	}
 
 	if c.Request.Method == http.MethodGet {
 		c.HTML(http.StatusOK, constant.LoginPage, gin.H{
-			"code":     encrypted,
+			"code":     socket["code"].(string),
 			"redirect": redirect,
 		})
 		return
@@ -45,8 +40,9 @@ func LoginHandler(c *gin.Context) {
 		UserID string `form:"userid" json:"userid" xml:"userid"  binding:"required"`
 	}
 
+	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
 	var req Request
-	if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+	if api {
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -59,7 +55,7 @@ func LoginHandler(c *gin.Context) {
 	} else {
 		if err := c.ShouldBind(&req); err != nil {
 			c.HTML(http.StatusUnauthorized, constant.IndexPage, gin.H{
-				"code":     encrypted,
+				"code":     socket["code"].(string),
 				"redirect": redirect,
 				"error":    err.Error(),
 			})
@@ -67,14 +63,19 @@ func LoginHandler(c *gin.Context) {
 		}
 	}
 
-	auth := &service.AuthService{}
 	data, err := auth.SendLoginToken(req.UserID)
 	if err != nil {
-		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+		if api {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":   400,
+				"status": "Bad Request",
+				"error":  err.Error(),
+			})
 			return
 		}
 		c.HTML(http.StatusBadRequest, constant.LoginPage, gin.H{
-			"code":     encrypted,
+			"code":     socket["code"].(string),
 			"redirect": redirect,
 			"error":    err.Error(),
 		})
@@ -82,25 +83,26 @@ func LoginHandler(c *gin.Context) {
 	}
 	status := data["status"].(string)
 
-	if status == "success" {
-		if strings.Contains(c.Request.URL.Path, os.Getenv("API_URI")) {
+	if status == "SUCCESS" {
+		if api {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusOK, gin.H{
-				"code":   200,
-				"status": "OK",
+				"code":    200,
+				"status":  "OK",
+				"message": data["message"].(string),
 				"data": map[string]string{
-					"message": data["message"].(string),
+					"referer": data["referer"].(string),
 				},
 			})
 			return
 		}
 		c.HTML(http.StatusOK, constant.TokenPage, gin.H{
-			"referer": req.UserID,
-			"purpose": data["purpose"].(string),
+			"referer":  data["referer"].(string),
+			"redirect": redirect,
+			"purpose":  data["purpose"].(string),
 		})
 		return
 	}
-	c.HTML(http.StatusOK, constant.LoginPage, nil)
 }
 
 func RefreshTokenHandler(c *gin.Context) {
@@ -114,7 +116,7 @@ func RefreshTokenHandler(c *gin.Context) {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	if strings.Contains(currentPath, os.Getenv("API_URI")) {
+	if strings.Contains(currentPath, os.Getenv("URL_API")) {
 		c.Header("Content-Type", "application/json")
 		c.JSON(http.StatusOK, gin.H{
 			"code":   200,
@@ -144,24 +146,54 @@ func RefreshTokenHandler(c *gin.Context) {
 	c.HTML(http.StatusOK, constant.IndexPage, nil)
 }
 
-// TODO
 func LogoutPageHandler(c *gin.Context) {
-	redirect := c.Query("redirect")
-	session := sessions.Default(c)
-	session.Clear()
-	session.Save()
-
-	if redirect != "" {
-		uri, err := util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
+	authService := &service.AuthService{}
+	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+		tokens := strings.Split(c.Request.Header.Get("Authorization"), " ")
+		data, err := authService.RemoveSessionToken(tokens[1])
 		if err != nil {
-			fmt.Printf("Error: %s", err.Error())
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":   400,
+				"status": "Bad Request",
+				"error":  err.Error(),
+			})
 			return
 		}
-		c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
-		return
+
+		if data["status"].(string) == "success" {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusOK, gin.H{
+				"code":    200,
+				"status":  "OK",
+				"message": data["message"].(string),
+			})
+			return
+		}
+	} else {
+		fmt.Println("TESTING")
+		redirect := c.Query("redirect")
+		session := sessions.Default(c)
+		_, err := authService.RemoveSessionToken(session.Get("access_token"))
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+
+		session.Clear()
+		session.Save()
+
+		if redirect != "" {
+			uri, err := util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
+			if err != nil {
+				fmt.Printf("Error: %s", err.Error())
+				return
+			}
+			c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
+			return
+		}
+		uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
+		c.Redirect(http.StatusMovedPermanently, uri)
 	}
-	uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
-	c.Redirect(http.StatusPermanentRedirect, uri)
 }
 
 var wsupgrader = &websocket.Upgrader{
@@ -170,54 +202,58 @@ var wsupgrader = &websocket.Upgrader{
 }
 
 func GenerateImageQrcodeHandler(c *gin.Context) {
-	var png []byte
-	code := c.Param("code")
+	if c.Request.Method == http.MethodGet {
+		var png []byte
+		code := c.Query("code")
 
-	c.Writer.Header().Set("Content-Type", "image/png")
-	png, err := qrcode.Encode(code, qrcode.Medium, 256)
-	if err != nil {
-		fmt.Printf("Error: %s", err.Error())
+		c.Writer.Header().Set("Content-Type", "image/png")
+		png, err := qrcode.Encode(code, qrcode.Medium, 256)
+		if err != nil {
+			fmt.Printf("Error: %s", err.Error())
+		}
+		c.Writer.Write(png)
 	}
-	c.Writer.Write(png)
 }
 
 func StartSocketHandler(c *gin.Context) {
-	userAgent := c.Request.Header["User-Agent"][0]
-	code := c.Param("code")
-	decrypted, err := util.Decrypt(code, os.Getenv("SECRET_KEY"))
-	if err != nil {
-		fmt.Printf("Error: %s", err.Error())
-	}
-	socket, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		fmt.Printf("Error while upgrading socket %v", err.Error())
-		return
-	}
-
-	if model.Sockets[decrypted].Status != 1 {
-		defer socket.Close()
-		err := socket.WriteMessage(websocket.TextMessage, []byte("Token is not active"))
+	if c.Request.Method == http.MethodGet {
+		userAgent := c.Request.Header["User-Agent"][0]
+		code := c.Query("code")
+		decrypted, err := util.Decrypt(code, os.Getenv("SECRET_KEY"))
 		if err != nil {
+			fmt.Printf("Error: %s", err.Error())
+		}
+		socket, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			fmt.Printf("Error while upgrading socket %v", err.Error())
 			return
 		}
-	}
-	loginSocket := model.Sockets[decrypted]
-	model.Sockets[decrypted] = model.LoginSocket{
-		Redirect:  loginSocket.Redirect,
-		UserAgent: userAgent,
-		Socket:    socket,
-	}
-	for {
-		mt, msg, err := socket.ReadMessage()
-		if err != nil {
-			fmt.Printf("Error while receiving message %v", err.Error())
-			break
-		}
-		message := "Received " + string(msg)
 
-		if err = socket.WriteMessage(mt, []byte(message)); err != nil {
-			fmt.Printf("Error while sending message %v", err.Error())
-			break
+		if model.Sockets[decrypted].Status != 1 {
+			defer socket.Close()
+			err := socket.WriteMessage(websocket.TextMessage, []byte("Token is not active"))
+			if err != nil {
+				return
+			}
+		}
+		loginSocket := model.Sockets[decrypted]
+		model.Sockets[decrypted] = model.LoginSocket{
+			Redirect:  loginSocket.Redirect,
+			UserAgent: userAgent,
+			Socket:    socket,
+		}
+		for {
+			mt, msg, err := socket.ReadMessage()
+			if err != nil {
+				fmt.Printf("Error while receiving message %v", err.Error())
+				break
+			}
+			message := "Received " + string(msg)
+
+			if err = socket.WriteMessage(mt, []byte(message)); err != nil {
+				fmt.Printf("Error while sending message %v", err.Error())
+				break
+			}
 		}
 	}
 }

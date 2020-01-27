@@ -1,4 +1,3 @@
-
 # alira-account
 
 Alira account module
@@ -45,3 +44,4 @@ For more information about using Go on Heroku, see these Dev Center articles:
 
 - [Go on Heroku](https://devcenter.heroku.com/categories/go)
 - [Gin Authentication Middleware](https://github.com/dandua98/gin-authentication-middleware)
+- [Simple OCR server, as a small working sample for gosseract.](https://github.com/otiai10/ocrserver)

@@ -4,29 +4,15 @@
   <title>Alira</title>
   </head>
 <body>
-  <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top">
-    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
+  {{template "nav.tmpl.html" . }}
+  {{ if .flashMessage }}
+  <div class="alert alert-success alert-dismissible fade show" role="alert">
+    <span>{{ .flashMessage }}</span>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <span aria-hidden="true">&times;</span>
     </button>
-    <div class="container collapse navbar-collapse" id="navbarNavAltMarkup">
-      <div class="navbar-nav mr-auto">
-        <a class="nav-item nav-link active" href="/">Home <span class="sr-only">(current)</span></a>
-        <a class="nav-item nav-link" href="/features">Features</a>
-        <a class="nav-item nav-link" href="/pricing">Pricing</a>
-        <a class="nav-item nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Disabled</a>
-      </div>
-      <div class="nav navbar-nav justify-content-end">
-        {{ if .userid }}
-        <a class="nav-item nav-link" href="/auth/logout"><span class="glyphicon glyphicon-book"></span> Logout</a>
-        {{ else }}
-        <a class="nav-item nav-link" href="/auth/login"><span class="glyphicon glyphicon-book"></span> Login</a>
-        <a class="nav-link nav-link" href="/account/register"><span class="glyphicon glyphicon-book"></span> Register</a>
-        {{ end }}
-        </li>
-      </ul>
-    </div>
-  </nav>
-
+  </div>
+  {{ end }}
 <div class="jumbotron text-center">
   <div class="container">
     <a href="/" class="lang-logo">
@@ -76,7 +62,7 @@
     </div>
   </div> <!-- row -->
     <div class="alert alert-info text-center" role="alert">
-      Please do work through the Getting Started guide, even if you do know how to build such an application. The guide covers the basics of working with Heroku, and will familiarize you with all the concepts you need in order to build and deploy your own apps.
+      {{ .data }}
   </div>
 </div>
 {{template "footer.tmpl.html"}}

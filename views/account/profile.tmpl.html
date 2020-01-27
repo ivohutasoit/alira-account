@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        {{template "header.tmpl.html"}}
+        <title>Account Profile</title>
+    </head>
+    <body>
+        {{ template "nav.tmpl.html" .}}
+        <div class="container">
+            <div class="row mx-auto justify-content-md-center">
+                <div class="col-4">
+                  <div class="list-group" id="list-tab" role="tablist">
+                    <a class="list-group-item list-group-item-action active" id="list-basic-list" data-toggle="list" href="#list-basic" role="tab" aria-controls="basic">Basic Information</a>
+                    <a class="list-group-item list-group-item-action" id="list-identity-list" data-toggle="list" href="#list-identity" role="tab" aria-controls="identity">Identity</a>
+                    <!--<a class="list-group-item list-group-item-action" id="list-messages-list" data-toggle="list" href="#list-messages" role="tab" aria-controls="messages">Messages</a>
+                    <a class="list-group-item list-group-item-action" id="list-settings-list" data-toggle="list" href="#list-settings" role="tab" aria-controls="settings">Settings</a>-->
+                  </div>
+                </div>
+                <div class="col-8">
+                  <div class="tab-content" id="nav-tabContent">
+                    <div class="tab-pane fade show active" id="list-basic" role="tabpanel" aria-labelledby="list-basic-list">
+                        <h1 class="h3 mb-3 font-weight-normal">Basic Information</h1>
+                        <form role="form" class="form-login" method="POST" action="/account/profile">
+                            <div class="form-group row">
+                                <label for="email" class="col-sm-2 col-form-label">Email</label>
+                                <div class="col-sm-5">
+                                    <input type="text" readonly class="form-control" name="email" id="email" value="{{ .email }}">
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="username" class="col-sm-2 col-form-label">Username</label>
+                                <div class="col-sm-5">
+                                <input type="text" {{ if ne .state "complete" }} readonly {{ end }} class="form-control" name="username" id="username" placeholder="Username" value="{{ .username }}">
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="mobile" class="col-sm-2 col-form-label">Mobile</label>
+                                <div class="col-sm-5">
+                                <input type="text" {{ if ne .state "complete" }} readonly {{ end }} class="form-control" name="mobile" id="mobile" placeholder="Mobile" value="{{ .mobile }}">
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="name" class="col-sm-2 col-form-label">Name</label>
+                                <div class="col-sm-5">
+                                <input type="text" {{ if eq .state "view" }} readonly {{ end }} class="form-control" name="first_name" id="first_name" placeholder="First Name" value="{{ .first_name }}">
+                                </div>
+                                <div class="col-sm-5">
+                                    <input type="text" {{ if eq .state "view" }} readonly {{ end }} class="form-control" name="last_name" id="last_name" placeholder="Last Name" value="{{ .last_name }}">
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="gender" class="col-sm-2 col-form-label">Gender</label>
+                                <div class="col-sm-5">
+                                <select name="gender" id="gender" class="custom-select" {{ if eq .state "view" }} disabled {{ end }}>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                                </div>
+                            </div>
+                            <input type="hidden" name="userid" id="userid" value="{{ .userid }}"/>
+                            <div class="clearfix">
+                            {{ if eq .state "view" }}
+                            <a class="btn btn-outline-danger float-left" href="/" role="button">Back to Home</a>
+                            <a class="btn btn-outline-primary float-right" href="/account/profile?action=edit" role="button">Update Profile</a>
+                            {{ else }}
+                            {{ if ne .state "complete" }}
+                            <a class="btn btn-outline-danger float-left" href="/account/profile" role="button">Cancel</a>
+                            {{ end }}
+                            <button type="submit" class="btn btn-outline-primary float-right">Save & Continue</button>
+                            {{ end }}
+                            </div>
+                        </form>
+                    </div>
+                    <div class="tab-pane fade" id="list-identity" role="tabpanel" aria-labelledby="list-identity-list">
+                        <h1 class="h3 mb-3 font-weight-normal">Identity Management</h1>
+                        <form>
+                            <div class="clearfix">
+                            {{ if eq .state "view" }}
+                            <a class="btn btn-outline-danger float-left" href="/" role="button">Back to Home</a>
+                            <a class="btn btn-outline-primary float-right" href="/account/identity?action=edit" role="button">Update Identity</a>
+                            {{ else }}
+                            {{ if ne .state "complete" }}
+                            <a class="btn btn-outline-danger float-left" href="/account/" role="button">Cancel</a>
+                            {{ end }}
+                            <button type="submit" class="btn btn-outline-primary float-right">Save & Continue</button>
+                            {{ end }}
+                            </div>
+                        </form>
+                    </div>
+                    <!--<div class="tab-pane fade" id="list-messages" role="tabpanel" aria-labelledby="list-messages-list">3</div>
+                    <div class="tab-pane fade" id="list-settings" role="tabpanel" aria-labelledby="list-settings-list">4</div>-->
+                  </div>
+                </div>
+            </div>
+            {{ if .error }}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <span>{{ .error }}</span>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            {{ end }}
+        </div>
+        {{template "footer.tmpl.html"}}
+        <script>
+            document.getElementById("gender").value = "{{ .gender }}";
+        </script>
+    </body>
+</html>

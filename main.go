@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
+	"time"
 
-	"github.com/ivohutasoit/alira-account/constant"
-	"github.com/ivohutasoit/alira-account/controller"
-	"github.com/ivohutasoit/alira/middleware"
+	"github.com/ivohutasoit/alira-account/route"
 	"github.com/ivohutasoit/alira/model"
 	"github.com/ivohutasoit/alira/model/domain"
 	"github.com/joho/godotenv"
@@ -23,7 +21,9 @@ func init() {
 	model.GetDatabase().Debug().AutoMigrate(&domain.User{},
 		&domain.Profile{},
 		&domain.Subscribe{},
-		&domain.Token{})
+		&domain.Token{},
+		&domain.Identity{},
+		&domain.NationalIdentity{})
 }
 
 func main() {
@@ -41,60 +41,27 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Logger())
-	router.Use(cors.Default())
+	router.Use(cors.New(cors.Config{
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type"},
+		AllowCredentials: false,
+		MaxAge:           12 * time.Hour,
+		AllowOriginFunc: func(origin string) bool {
+			fmt.Println(origin)
+			return true
+		},
+	}))
 
 	store := cookie.NewStore([]byte(os.Getenv("SECRET_KEY")))
 	router.Use(sessions.Sessions("ALIRASESSION", store))
 	router.LoadHTMLGlob("views/*/*.tmpl.html")
 	router.Static("/static", "static")
 
-	web := router.Group("")
-	{
-		web.Use(middleware.SessionHeaderRequired(os.Getenv("LOGIN_URL")))
-		web.Any("/", func(c *gin.Context) {
-			c.HTML(http.StatusOK, constant.IndexPage, gin.H{
-				"userid": c.GetString("userid"),
-			})
-		})
-		webauth := web.Group("/auth")
-		{
-			webauth.GET("/login", controller.LoginHandler)
-			webauth.POST("/login", controller.LoginHandler)
-			webauth.GET("/qrcode/:code", controller.GenerateImageQrcodeHandler)
-			webauth.GET("/socket/:code", controller.StartSocketHandler)
-			webauth.GET("/logout", controller.LogoutPageHandler)
-		}
-		webacct := web.Group("/account")
-		{
-			webacct.GET("/register", controller.RegisterHandler)
-			webacct.POST("/register", controller.RegisterHandler)
-		}
-		webtoken := web.Group("/token")
-		{
-			webtoken.POST("/verify", controller.VerifyTokenHandler)
-		}
-	}
+	web := &route.WebRoute{}
+	web.Initialize(router)
 
-	api := router.Group("/api/alpha")
-	api.Use(middleware.TokenHeaderRequired())
-	{
-		apiauth := api.Group("/auth")
-		{
-			apiauth.POST("/login", controller.LoginHandler)
-			apiauth.POST("/refresh", controller.RefreshTokenHandler)
-			apiauth.POST("/verify", controller.VerifyQrcodeHandler)
-		}
-		apiaccount := api.Group("/account")
-		{
-			//apiaccount.GET("/:id", controller.ProfileHandler)
-			apiaccount.POST("/register", controller.RegisterHandler)
-			apiaccount.POST("/profile", controller.CompleteProfileHandler)
-		}
-		apitoken := api.Group("token")
-		{
-			apitoken.POST("verify", controller.VerifyTokenHandler)
-		}
-	}
+	api := &route.ApiRoute{}
+	api.Initialize(router)
 
 	router.Run(":" + port)
 }

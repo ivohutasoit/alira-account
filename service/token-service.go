@@ -7,6 +7,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
+	"github.com/ivohutasoit/alira/model"
 	"github.com/ivohutasoit/alira/model/domain"
 )
 
@@ -73,5 +74,44 @@ func (s *TokenService) GenerateSessionToken(args ...interface{}) (map[interface{
 	return map[interface{}]interface{}{
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
+	}, nil
+}
+
+func (s *TokenService) GetTokenInformation(args ...interface{}) (map[interface{}]interface{}, error) {
+	if len(args) < 2 {
+		return nil, errors.New("not enough parameter")
+	}
+	tokenType, ok := args[0].(string)
+	if !ok {
+		return nil, errors.New("parameter not type string")
+	}
+	tokenString, ok := args[1].(string)
+	if !ok {
+		return nil, errors.New("parameter not type string")
+	}
+
+	token := &domain.Token{}
+	user := &domain.User{}
+	if tokenType == "Bearer" {
+		model.GetDatabase().First(token, "access_token = ? AND valid = ?",
+			tokenString, true)
+	} else {
+		model.GetDatabase().First(&token, "refresh_token = ? AND valid = ?",
+			tokenString, true)
+	}
+	if token.BaseModel.ID == "" {
+		return nil, errors.New("invalid token")
+	}
+
+	model.GetDatabase().First(user, "id = ? AND active = ?",
+		token.UserID, true)
+	if user.BaseModel.ID == "" {
+		return nil, errors.New("invalid token")
+	}
+
+	return map[interface{}]interface{}{
+		"status": "success",
+		"valid":  true,
+		"user":   user,
 	}, nil
 }
