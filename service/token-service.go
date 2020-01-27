@@ -103,7 +103,7 @@ func (s *TokenService) GetTokenInformation(args ...interface{}) (map[interface{}
 		return nil, errors.New("invalid token")
 	}
 
-	model.GetDatabase().First(user, "id = ? AND active = ? AND deleted_at IS NULL",
+	model.GetDatabase().First(user, "id = ? AND active = ?",
 		token.UserID, true)
 	if user.BaseModel.ID == "" {
 		return nil, errors.New("invalid token")

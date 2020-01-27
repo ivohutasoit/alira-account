@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -12,6 +13,96 @@ import (
 	"github.com/ivohutasoit/alira/model/domain"
 	"github.com/ivohutasoit/alira/util"
 )
+
+type AccountController struct{}
+
+func (ctrl *AccountController) CreateHandler(c *gin.Context) {
+	if c.Request.Method == http.MethodGet {
+		c.HTML(http.StatusOK, "account-create.tmpl.html", domain.Page)
+	}
+
+	type Request struct {
+		Username  string `form:"username" json:"username" xml:"username"`
+		Email     string `form:"email" json:"email" xml:"email" binding:"required"`
+		Mobile    string `form:"mobile" json:"mobile" xml:"mobile" binding:"required"`
+		FirstName string `form:"first_name" json:"first_name" xml:"first_name" binding:"required"`
+		LastName  string `form:"last_name" json:"last_name" xml:"last_name" binding:"required"`
+		Active    bool   `form:"active" json:"active" xml:"active"`
+	}
+
+	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
+	var req Request
+	if api {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"code":   http.StatusBadRequest,
+				"status": http.StatusText(http.StatusBadRequest),
+				"error":  err.Error(),
+			})
+		}
+	}
+	acctService := &service.AccountService{}
+	data, err := acctService.Create(req.Username, req.Email, req.Mobile, req.FirstName, req.LastName)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"code":   http.StatusBadRequest,
+			"status": http.StatusText(http.StatusBadRequest),
+			"error":  err.Error(),
+		})
+	}
+	user := data["user"].(*domain.User)
+	if data["status"].(string) == "SUCCESS" {
+		if api {
+			c.JSON(http.StatusCreated, gin.H{
+				"code":    http.StatusCreated,
+				"status":  http.StatusText(http.StatusCreated),
+				"message": "Profile has been created",
+				"data": map[string]string{
+					"user_id": user.BaseModel.ID,
+				},
+			})
+		}
+	}
+}
+
+func (ctrl *AccountController) DetailHandler(c *gin.Context) {
+	var id string
+	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
+	if api {
+		id = c.Param("id")
+	} else {
+		id = c.Query("id")
+	}
+
+	accountService := &service.AccountService{}
+	data, err := accountService.Get(id)
+	if err != nil {
+		if api {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"code":   http.StatusBadRequest,
+				"status": http.StatusText(http.StatusBadRequest),
+				"error":  err.Error(),
+			})
+		}
+		return
+	}
+
+	user := data["user"].(*domain.User)
+	profile := data["profile"].(*domain.Profile)
+	fmt.Println(user.Username)
+	if api {
+		c.JSON(http.StatusOK, gin.H{
+			"code":   http.StatusOK,
+			"status": http.StatusText(http.StatusOK),
+			"data": map[string]string{
+				"username": user.Username,
+				"email":    user.Email,
+				"mobile":   user.Mobile,
+				"name":     fmt.Sprintf("%s %s", profile.FirstName, profile.LastName),
+			},
+		})
+	}
+}
 
 func AccountViewHandler(c *gin.Context) {
 	if c.Request.Method == http.MethodGet {
@@ -121,7 +212,7 @@ func ProfileHandler(c *gin.Context) {
 		action = "view"
 	}
 	accService := &service.AccountService{}
-	data, err := accService.Get(c.GetString("userid"))
+	data, err := accService.Get(c.GetString("user_id"))
 	if err != nil {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.Header("Content-Type", "application/json")
@@ -132,8 +223,8 @@ func ProfileHandler(c *gin.Context) {
 			})
 		} else {
 			c.HTML(http.StatusBadRequest, constant.ProfilePage, gin.H{
-				"userid": c.GetString("userid"),
-				"error":  err.Error(),
+				"user_id": c.GetString("user_id"),
+				"error":   err.Error(),
 			})
 		}
 		return
@@ -142,8 +233,11 @@ func ProfileHandler(c *gin.Context) {
 	user := data["user"].(*domain.User)
 	profile := data["profile"].(*domain.Profile)
 	if c.Request.Method == http.MethodGet {
+		if user.Username == "" {
+			action = "complete"
+		}
 		c.HTML(http.StatusOK, constant.ProfilePage, gin.H{
-			"userid":     user.ID,
+			"user_id":    user.ID,
 			"email":      user.Email,
 			"username":   user.Username,
 			"mobile":     user.Mobile,
@@ -175,7 +269,7 @@ func ProfileHandler(c *gin.Context) {
 	} else {
 		if err := c.ShouldBind(&req); err != nil {
 			c.HTML(http.StatusBadRequest, constant.ProfilePage, gin.H{
-				"userid":     user.ID,
+				"user_id":    user.ID,
 				"email":      user.Email,
 				"username":   user.Username,
 				"mobile":     user.Mobile,
@@ -188,7 +282,7 @@ func ProfileHandler(c *gin.Context) {
 			return
 		}
 	}
-	data, err = accService.SaveProfile(c.GetString("userid"), req.Username, req.Mobile, req.FirstName, req.LastName, req.Gender)
+	data, err = accService.SaveProfile(c.GetString("user_id"), req.Username, req.Mobile, req.FirstName, req.LastName, req.Gender)
 	if err != nil {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.Header("Content-Type", "application/json")
@@ -199,7 +293,7 @@ func ProfileHandler(c *gin.Context) {
 			})
 		} else {
 			c.HTML(http.StatusBadRequest, constant.ProfilePage, gin.H{
-				"userid":     user.ID,
+				"user_id":    user.ID,
 				"email":      user.Email,
 				"username":   user.Username,
 				"mobile":     user.Mobile,
@@ -220,7 +314,7 @@ func ProfileHandler(c *gin.Context) {
 			"status":  "OK",
 			"message": data["message"].(string),
 			"data": map[string]string{
-				"userid": data["userid"].(string),
+				"user_id": data["user_id"].(string),
 			},
 		})
 		return

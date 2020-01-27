@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ivohutasoit/alira-account/route"
 	"github.com/ivohutasoit/alira/model"
@@ -40,7 +41,16 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Logger())
-	router.Use(cors.Default())
+	router.Use(cors.New(cors.Config{
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type"},
+		AllowCredentials: false,
+		MaxAge:           12 * time.Hour,
+		AllowOriginFunc: func(origin string) bool {
+			fmt.Println(origin)
+			return true
+		},
+	}))
 
 	store := cookie.NewStore([]byte(os.Getenv("SECRET_KEY")))
 	router.Use(sessions.Sessions("ALIRASESSION", store))

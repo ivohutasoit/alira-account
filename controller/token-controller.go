@@ -77,6 +77,11 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 			} else {
 				uri, _ = util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
 			}
+			if data["profile"].(string) == "required" {
+				uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/account/profile?action=complete", false)
+				c.Redirect(http.StatusMovedPermanently, uri)
+				return
+			}
 			c.Redirect(http.StatusMovedPermanently, uri)
 		} else if req.Purpose == "REGISTER" {
 			accService := &service.AccountService{}
@@ -150,8 +155,10 @@ func (ctrl *TokenController) InfoHandler(c *gin.Context) {
 	}*/
 
 	type Request struct {
-		Type  string `form:"type" json:"type" xml:"type" binding:"required"`
-		Token string `form:"token" json:"token" xml:"token" binding:"required"`
+		AppID     string `form:"app_id" json:"app_id" xml:"app_id"`
+		AppSecret string `form:"app_secret" json:"app_secret" xml:"app_secret"`
+		Type      string `form:"type" json:"type" xml:"type" binding:"required"`
+		Token     string `form:"token" json:"token" xml:"token" binding:"required"`
 	}
 	var req Request
 	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
@@ -178,7 +185,7 @@ func (ctrl *TokenController) InfoHandler(c *gin.Context) {
 		}
 	}
 
-	user := data["user"].(domain.User)
+	user := data["user"].(*domain.User)
 
 	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 		c.JSON(http.StatusOK, gin.H{

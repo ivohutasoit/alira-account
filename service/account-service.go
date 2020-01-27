@@ -15,6 +15,76 @@ import (
 
 type AccountService struct{}
 
+func (s *AccountService) Create(args ...interface{}) (map[interface{}]interface{}, error) {
+	if len(args) < 1 {
+		return nil, errors.New("not enough parameters")
+	}
+	var username, email, mobile, firstName, lastName string
+	for i, v := range args {
+		switch i {
+		case 1:
+			param, ok := v.(string)
+			if !ok {
+				return nil, errors.New("plain text parameter not type string")
+			}
+			email = strings.ToLower(strings.TrimSpace(param))
+		case 2:
+			param, ok := v.(string)
+			if !ok {
+				return nil, errors.New("plain text parameter not type string")
+			}
+			mobile = strings.TrimSpace(param)
+		case 3:
+			param, ok := v.(string)
+			if !ok {
+				return nil, errors.New("plain text parameter not type string")
+			}
+			firstName = strings.Title(strings.TrimSpace(param))
+		case 4:
+			param, ok := v.(string)
+			if !ok {
+				return nil, errors.New("plain text parameter not type string")
+			}
+			lastName = strings.Title(strings.TrimSpace(param))
+		default:
+			param, ok := v.(string)
+			if !ok {
+				return nil, errors.New("plain text parameter not type string")
+			}
+			username = strings.ToLower(strings.TrimSpace(param))
+		}
+	}
+	fmt.Println("Step 1")
+	var users []domain.User
+	model.GetDatabase().Where("active = ? AND (username = ? OR email = ? OR mobile = ?)",
+		true, username, email, mobile).Find(&users)
+	if len(users) > 0 {
+		return nil, errors.New("username has been taken")
+	}
+	fmt.Println("Step 2")
+	user := &domain.User{
+		Username: username,
+		Email:    email,
+		Mobile:   mobile,
+		Active:   false,
+	}
+	model.GetDatabase().Create(user)
+
+	fmt.Println("Step 3")
+	profile := &domain.Profile{
+		ID:        user.BaseModel.ID,
+		FirstName: firstName,
+		LastName:  lastName,
+	}
+	model.GetDatabase().Create(profile)
+
+	fmt.Println("Step 4")
+	return map[interface{}]interface{}{
+		"status": "SUCCESS",
+		"user":   user,
+	}, nil
+}
+
 func (s *AccountService) Get(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 1 {
 		return nil, errors.New("not enough parameters")
@@ -24,15 +94,15 @@ func (s *AccountService) Get(args ...interface{}) (map[interface{}]interface{}, 
 		return nil, errors.New("plain text parameter not type string")
 	}
 	user := &domain.User{}
-	model.GetDatabase().First(user, "id = ? AND active = ?", userid, true)
+	model.GetDatabase().First(&user, "id = ?", userid)
 	profile := &domain.Profile{}
-	model.GetDatabase().First(profile, "id = ?", userid)
+	model.GetDatabase().First(&profile, "id = ?", userid)
 
-	if user == nil {
+	if user.BaseModel.ID == "" {
 		return nil, errors.New("invalid user")
 	}
 
-	if profile == nil {
+	if profile.ID == "" {
 		return nil, errors.New("invalid user profile")
 	}
 
@@ -192,7 +262,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 	model.GetDatabase().Save(&token)
 
 	return map[interface{}]interface{}{
-		"userid":        user.BaseModel.ID,
+		"user_id":       user.BaseModel.ID,
 		"email":         user.Email,
 		"access_token":  sessionToken.AccessToken,
 		"refresh_token": sessionToken.RefreshToken,
@@ -218,13 +288,13 @@ func (s *AccountService) SaveProfile(args ...interface{}) (map[interface{}]inter
 			mobile = param
 			break
 		case 3:
-			firstName = strings.ToUpper(param)
+			firstName = strings.Title(param)
 			break
 		case 4:
-			lastName = strings.ToUpper(param)
+			lastName = strings.Title(param)
 			break
 		case 5:
-			gender = strings.ToUpper(param)
+			gender = strings.ToLower(param)
 			break
 		default:
 			userid = param
@@ -254,7 +324,7 @@ func (s *AccountService) SaveProfile(args ...interface{}) (map[interface{}]inter
 	model.GetDatabase().Save(&profile)
 
 	return map[interface{}]interface{}{
-		"userid":  userid,
+		"user_id": userid,
 		"message": "User profile has been saved succesfully",
 	}, nil
 }
