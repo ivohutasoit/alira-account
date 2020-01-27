@@ -19,17 +19,20 @@ func (route *ApiRoute) Initialize(r *gin.Engine) {
 			apiauth.POST("/verify", controller.VerifyQrcodeHandler)
 			apiauth.POST("/logout", controller.LogoutPageHandler)
 		}
+		account := &controller.AccountController{}
 		apiaccount := api.Group("/account")
 		{
+			apiaccount.POST("", account.CreateHandler)
+			apiaccount.GET("/:id", account.DetailHandler)
 			apiaccount.POST("/register", controller.RegisterHandler)
 			apiaccount.POST("/profile", controller.ProfileHandler)
 			apiaccount.POST("/identity", controller.IdentityHandler)
 		}
-		tokenController := &controller.TokenController{}
+		token := &controller.TokenController{}
 		apitoken := api.Group("/token")
 		{
-			apitoken.POST("info", tokenController.InfoHandler)
-			apitoken.POST("verify", tokenController.VerifyHandler)
+			apitoken.POST("info", token.InfoHandler)
+			apitoken.POST("verify", token.VerifyHandler)
 		}
 	}
 }
