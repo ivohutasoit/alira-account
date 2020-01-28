@@ -56,10 +56,8 @@ func (ctrl *AccountController) CreateHandler(c *gin.Context) {
 			c.JSON(http.StatusCreated, gin.H{
 				"code":    http.StatusCreated,
 				"status":  http.StatusText(http.StatusCreated),
-				"message": "Profile has been created",
-				"data": map[string]string{
-					"user_id": user.BaseModel.ID,
-				},
+				"message": "User has been created",
+				"data":    user,
 			})
 		}
 	}
@@ -89,7 +87,6 @@ func (ctrl *AccountController) DetailHandler(c *gin.Context) {
 
 	user := data["user"].(*domain.User)
 	profile := data["profile"].(*domain.Profile)
-	fmt.Println(user.Username)
 	if api {
 		c.JSON(http.StatusOK, gin.H{
 			"code":   http.StatusOK,
