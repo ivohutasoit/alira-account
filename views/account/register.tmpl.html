@@ -8,15 +8,15 @@
     <body >
         <div class="container">
             <h1 class="h3 mb-3 font-weight-normal text-center">Welcome to <code>Alira</code></h1>
-            <form class="form-account" method="POST" action="/account/register">
+            <form class="form-account" method="POST" action="/account/register" autocomplete="off">
                 <div class="form-group">
                     <label for="payload" class="sr-only">Email</label>
-                    <input type="text" class="form-control" id="userid" name="userid" placeholder="Email address" required>
+                    <input type="text" tabindex="1" class="form-control" id="userid" name="userid" placeholder="Email address" required>
                 </div>
                 <input type="hidden" name="reference" value="email"/>
                 <div class="clearfix">
-                    <a class="btn btn-outline-danger btn-sm float-left" href="/" role="button">Back to Home</a>
-                    <button type="submit" class="btn btn-outline-primary btn-sm float-right">Register</button>
+                    <a class="btn btn-outline-danger btn-sm float-left" href="/" role="button" tabindex="3">Back to Home</a>
+                    <button type="submit" class="btn btn-outline-primary btn-sm float-right" tabindex="2">Register</button>
                 </div>
             </form>
             
