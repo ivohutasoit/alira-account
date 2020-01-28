@@ -21,7 +21,13 @@ func (route *WebRoute) Initialize(r *gin.Engine) {
 			session := sessions.Default(c)
 			session.Delete("message")
 			session.Save()
-			domain.Page["flash_message"] = session.Get("message")
+			if domain.Page == nil {
+				domain.Page = gin.H{
+					"flash_message": session.Get("message"),
+				}
+			} else {
+				domain.Page["flash_message"] = session.Get("message")
+			}
 			c.HTML(http.StatusOK, constant.IndexPage, domain.Page)
 		})
 
