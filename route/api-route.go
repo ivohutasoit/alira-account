@@ -3,14 +3,15 @@ package route
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/ivohutasoit/alira-account/controller"
-	"github.com/ivohutasoit/alira/middleware"
+	"github.com/ivohutasoit/alira-account/middleware"
 )
 
 type ApiRoute struct{}
 
 func (route *ApiRoute) Initialize(r *gin.Engine) {
+	authMiddleware := &middleware.Auth{}
 	api := r.Group("/api/alpha")
-	api.Use(middleware.TokenHeaderRequired())
+	api.Use(authMiddleware.TokenHeaderRequired())
 	{
 		apiauth := api.Group("/auth")
 		{

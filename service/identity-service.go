@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ivohutasoit/alira/model"
-	"github.com/ivohutasoit/alira/model/domain"
+	alira "github.com/ivohutasoit/alira"
+	"github.com/ivohutasoit/alira/database/account"
 )
 
 type IdentityService struct{}
@@ -26,47 +26,47 @@ func (s *IdentityService) CreateNationIdentity(args ...interface{}) (map[interfa
 		return nil, errors.New("plain text parameter not type string")
 	}
 
-	user := &domain.User{}
-	model.GetDatabase().First(user, "id = ? AND active = ?", userid, true)
-	if user.BaseModel.ID == "" {
+	user := &account.User{}
+	alira.GetConnection().First(user, "id = ? AND active = ?", userid, true)
+	if user.Model.ID == "" {
 		return nil, errors.New("invalid user")
 	}
 
-	identity := &domain.Identity{}
-	model.GetDatabase().First(identity, "user_id = ?", userid)
+	identity := &account.Identity{}
+	alira.GetConnection().First(identity, "user_id = ?", userid)
 
-	nIdentity := &domain.NationalIdentity{}
-	if identity.BaseModel.ID != "" {
-		model.GetDatabase().First(nIdentity, "document = ? AND nation_id = ?", document, args[2].(string))
-		if nIdentity.BaseModel.ID != "" {
+	nIdentity := &account.NationalIdentity{}
+	if identity.Model.ID != "" {
+		alira.GetConnection().First(nIdentity, "document = ? AND nation_id = ?", document, args[2].(string))
+		if nIdentity.Model.ID != "" {
 			return nil, errors.New("identity has used other user")
 		}
 	} else {
 		code, _ := GenerateNationalCode(args[4].(string), args[5].(time.Time))
-		identity = &domain.Identity{
+		identity = &account.Identity{
 			Class:  "NATION",
-			UserID: user.BaseModel.ID,
+			UserID: user.Model.ID,
 			Code:   code.(string),
 		}
-		model.GetDatabase().Create(&identity)
+		alira.GetConnection().Create(&identity)
 	}
 
-	nIdentity = &domain.NationalIdentity{
-		UserID:      user.BaseModel.ID,
-		IdentityID:  identity.BaseModel.ID,
+	nIdentity = &account.NationalIdentity{
+		UserID:      user.Model.ID,
+		IdentityID:  identity.Model.ID,
 		Document:    document,
 		NationID:    args[2].(string),
 		Fullname:    args[3].(string),
 		Country:     args[4].(string),
 		Nationality: "INDONESIAN",
 	}
-	model.GetDatabase().Create(&nIdentity)
+	alira.GetConnection().Create(&nIdentity)
 
 	return map[interface{}]interface{}{
 		"status":        "SUCCESS",
 		"message":       "Your identity has been created",
 		"identity_code": identity.Code,
-		"userid":        user.BaseModel.ID,
+		"userid":        user.Model.ID,
 	}, nil
 }
 
@@ -94,16 +94,16 @@ func GenerateNationalCode(args ...interface{}) (interface{}, error) {
 
 	code := fmt.Sprintf("%d%d%02d%02d", country, date.Year(), date.Month(), date.Day())
 
-	var identities []domain.Identity
-	model.GetDatabase().Where("code LIKE ?", code+"%").Find(&identities).Order("code DESC")
+	var identities []account.Identity
+	alira.GetConnection().Where("code LIKE ?", code+"%").Find(&identities).Order("code DESC")
 
-	var identity domain.Identity
+	var identity account.Identity
 	if identities != nil && len(identities) < 0 {
 		identity = identities[0]
 	}
 
 	var seq int
-	if identity.BaseModel.ID != "" {
+	if identity.Model.ID != "" {
 		if n, err := strconv.Atoi(identity.Code[10:len(identity.Code)]); err == nil {
 			seq = n + 1
 		} else {

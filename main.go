@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 
+	alira "github.com/ivohutasoit/alira"
 	"github.com/ivohutasoit/alira-account/route"
-	"github.com/ivohutasoit/alira/model"
-	"github.com/ivohutasoit/alira/model/domain"
+	"github.com/ivohutasoit/alira/database/account"
 	"github.com/joho/godotenv"
 
 	"github.com/gin-contrib/cors"
@@ -18,12 +18,12 @@ import (
 )
 
 func init() {
-	model.GetDatabase().Debug().AutoMigrate(&domain.User{},
-		&domain.Profile{},
-		&domain.Subscribe{},
-		&domain.Token{},
-		&domain.Identity{},
-		&domain.NationalIdentity{})
+	alira.GetConnection().Debug().AutoMigrate(&account.User{},
+		&account.Profile{},
+		&account.Subscription{},
+		&account.Token{},
+		&account.Identity{},
+		&account.NationalIdentity{})
 }
 
 func main() {

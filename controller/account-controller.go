@@ -10,7 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/service"
-	"github.com/ivohutasoit/alira/model/domain"
+	"github.com/ivohutasoit/alira/database/account"
+	alira "github.com/ivohutasoit/alira"
 	"github.com/ivohutasoit/alira/util"
 )
 
@@ -18,7 +19,7 @@ type AccountController struct{}
 
 func (ctrl *AccountController) CreateHandler(c *gin.Context) {
 	if c.Request.Method == http.MethodGet {
-		c.HTML(http.StatusOK, "account-create.tmpl.html", domain.Page)
+		c.HTML(http.StatusOK, "account-create.tmpl.html", alira.ViewData)
 	}
 
 	type Request struct {
@@ -50,7 +51,7 @@ func (ctrl *AccountController) CreateHandler(c *gin.Context) {
 			"error":  err.Error(),
 		})
 	}
-	user := data["user"].(*domain.User)
+	user := data["user"].(*account.User)
 	if data["status"].(string) == "SUCCESS" {
 		if api {
 			c.JSON(http.StatusCreated, gin.H{
@@ -85,8 +86,8 @@ func (ctrl *AccountController) DetailHandler(c *gin.Context) {
 		return
 	}
 
-	user := data["user"].(*domain.User)
-	profile := data["profile"].(*domain.Profile)
+	user := data["user"].(*account.User)
+	profile := data["profile"].(*account.Profile)
 	if api {
 		c.JSON(http.StatusOK, gin.H{
 			"code":   http.StatusOK,
@@ -227,8 +228,8 @@ func ProfileHandler(c *gin.Context) {
 		return
 	}
 
-	user := data["user"].(*domain.User)
-	profile := data["profile"].(*domain.Profile)
+	user := data["user"].(*account.User)
+	profile := data["profile"].(*account.Profile)
 	if c.Request.Method == http.MethodGet {
 		if user.Username == "" {
 			action = "complete"

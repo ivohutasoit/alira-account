@@ -7,8 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ivohutasoit/alira/model"
-	"github.com/ivohutasoit/alira/model/domain"
+	alira "github.com/ivohutasoit/alira"
 	"github.com/ivohutasoit/alira/service"
 	"github.com/ivohutasoit/alira/util"
 )
@@ -54,31 +53,27 @@ func (s *AccountService) Create(args ...interface{}) (map[interface{}]interface{
 			username = strings.ToLower(strings.TrimSpace(param))
 		}
 	}
-	fmt.Println("Step 1")
-	var users []domain.User
-	model.GetDatabase().Where("active = ? AND (username = ? OR email = ? OR mobile = ?)",
+	var users []account.User
+	alira.GetConnection().Where("active = ? AND (username = ? OR email = ? OR mobile = ?)",
 		true, username, email, mobile).Find(&users)
 	if len(users) > 0 {
 		return nil, errors.New("username has been taken")
 	}
-	fmt.Println("Step 2")
-	user := &domain.User{
+	user := &account.User{
 		Username: username,
 		Email:    email,
 		Mobile:   mobile,
 		Active:   false,
 	}
-	model.GetDatabase().Create(user)
+	alira.GetConnection().Create(user)
 
-	fmt.Println("Step 3")
-	profile := &domain.Profile{
-		ID:        user.BaseModel.ID,
+	profile := &account.Profile{
+		ID:        user.Model.ID,
 		FirstName: firstName,
 		LastName:  lastName,
 	}
-	model.GetDatabase().Create(profile)
+	alira.GetConnection().Create(profile)
 
-	fmt.Println("Step 4")
 	return map[interface{}]interface{}{
 		"status": "SUCCESS",
 		"user":   user,
@@ -93,12 +88,12 @@ func (s *AccountService) Get(args ...interface{}) (map[interface{}]interface{}, 
 	if !ok {
 		return nil, errors.New("plain text parameter not type string")
 	}
-	user := &domain.User{}
-	model.GetDatabase().First(&user, "id = ?", userid)
-	profile := &domain.Profile{}
-	model.GetDatabase().First(&profile, "id = ?", userid)
+	user := &account.User{}
+	alira.GetConnection().First(&user, "id = ?", userid)
+	profile := &account.Profile{}
+	alira.GetConnection().First(&profile, "id = ?", userid)
 
-	if user.BaseModel.ID == "" {
+	if user.Model.ID == "" {
 		return nil, errors.New("invalid user")
 	}
 
@@ -137,22 +132,22 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (map[interface{
 		}
 	}
 
-	user := &domain.User{}
-	model.GetDatabase().First(user, "active = ? AND (username = ? OR email = ? OR mobile = ?)",
+	user := &account.User{}
+	alira.GetConnection().First(user, "active = ? AND (username = ? OR email = ? OR mobile = ?)",
 		true, payload, payload, payload)
-	if user.BaseModel.ID != "" {
+	if user.Model.ID != "" {
 		return nil, errors.New("user already exists")
 	}
 
-	token := &domain.Token{}
-	model.GetDatabase().First(token, "valid = ? AND class = ? AND referer = ?", true, "REGISTER", payload)
+	token := &account.Token{}
+	alira.GetConnection().First(token, "valid = ? AND class = ? AND referer = ?", true, "REGISTER", payload)
 
 	if token != nil {
 		token.Valid = false
-		model.GetDatabase().Save(&token)
+		alira.GetConnection().Save(&token)
 	}
 
-	token = &domain.Token{
+	token = &account.Token{
 		Referer:     payload,
 		Class:       "REGISTER",
 		AccessToken: util.GenerateToken(6),
@@ -161,7 +156,7 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (map[interface{
 		Valid:       true,
 	}
 	if sentTo == "email" {
-		mail := &domain.Mail{
+		mail := &account.Mail{
 			From:     os.Getenv("SMTP_SENDER"),
 			To:       []string{token.Referer},
 			Subject:  "[Alira] Registration Token",
@@ -177,7 +172,7 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (map[interface{
 		}
 	}
 
-	model.GetDatabase().Create(token)
+	alira.GetConnection().Create(token)
 
 	return map[interface{}]interface{}{
 		"status":  "SUCCESS",
@@ -206,21 +201,21 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 			break
 		}
 	}
-	token := &domain.Token{}
-	model.GetDatabase().First(token, "access_token = ? AND referer = ? AND valid = ? AND class = ?",
+	token := &account.Token{}
+	alira.GetConnection().First(token, "access_token = ? AND referer = ? AND valid = ? AND class = ?",
 		code, referer, true, "REGISTER")
 	if token == nil {
 		return nil, errors.New("invalid token")
 	}
 
-	user := &domain.User{
+	user := &account.User{
 		Email:  token.Referer,
 		Active: true,
 	}
 
-	profile := &domain.Profile{}
+	profile := &account.Profile{}
 
-	subscribe := &domain.Subscribe{
+	subscribe := &account.Subscribe{
 		Code:      "BASIC",
 		Name:      "Basic Account",
 		Signature: util.GenerateToken(16),
@@ -228,7 +223,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 		AgreedAt:  time.Now(),
 	}
 
-	sessionToken := &domain.Token{
+	sessionToken := &account.Token{
 		Class:     "SESSION",
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().Add(time.Hour * 12),
@@ -238,7 +233,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 	expired := now.AddDate(0, 0, 1)
 
 	ts := &TokenService{}
-	data, err := ts.GenerateSessionToken(user.BaseModel.ID, now, expired)
+	data, err := ts.GenerateSessionToken(user.Model.ID, now, expired)
 	if err != nil {
 		return nil, err
 	}
@@ -246,23 +241,23 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 	sessionToken.AccessToken = data["access_token"].(string)
 	sessionToken.RefreshToken = data["refresh_token"].(string)
 
-	model.GetDatabase().Create(&user)
+	alira.GetConnection().Create(&user)
 
-	profile.ID = user.BaseModel.ID
-	model.GetDatabase().Create(&profile)
+	profile.ID = user.Model.ID
+	alira.GetConnection().Create(&profile)
 
-	subscribe.SubscriberID = user.BaseModel.ID
-	model.GetDatabase().Create(&subscribe)
+	subscribe.SubscriberID = user.Model.ID
+	alira.GetConnection().Create(&subscribe)
 
-	sessionToken.UserID = user.BaseModel.ID
-	model.GetDatabase().Create(&sessionToken)
+	sessionToken.UserID = user.Model.ID
+	alira.GetConnection().Create(&sessionToken)
 
-	token.UserID = user.BaseModel.ID
+	token.UserID = user.Model.ID
 	token.Valid = false
-	model.GetDatabase().Save(&token)
+	alira.GetConnection().Save(&token)
 
 	return map[interface{}]interface{}{
-		"user_id":       user.BaseModel.ID,
+		"user_id":       user.Model.ID,
 		"email":         user.Email,
 		"access_token":  sessionToken.AccessToken,
 		"refresh_token": sessionToken.RefreshToken,
@@ -300,28 +295,28 @@ func (s *AccountService) SaveProfile(args ...interface{}) (map[interface{}]inter
 			userid = param
 		}
 	}
-	user := &domain.User{}
-	model.GetDatabase().First(user, "id = ? AND active = ?", userid, true)
+	user := &account.User{}
+	alira.GetConnection().First(user, "id = ? AND active = ?", userid, true)
 
-	if user.BaseModel.ID == "" {
+	if user.Model.ID == "" {
 		return nil, errors.New("invalid user")
 	}
 
-	profile := &domain.Profile{}
-	model.GetDatabase().First(profile, "id = ?", user.BaseModel.ID)
+	profile := &account.Profile{}
+	alira.GetConnection().First(profile, "id = ?", user.Model.ID)
 	if profile == nil {
 		return nil, errors.New("invalid user profile")
 	}
 
 	user.Username = strings.TrimSpace(username)
 	user.Mobile = strings.TrimSpace(mobile)
-	model.GetDatabase().Save(&user)
+	alira.GetConnection().Save(&user)
 
 	profile.Name = strings.TrimSpace(fmt.Sprintf("%s %s", firstName, lastName))
 	profile.FirstName = strings.TrimSpace(firstName)
 	profile.LastName = strings.TrimSpace(lastName)
 	profile.Gender = strings.TrimSpace(gender)
-	model.GetDatabase().Save(&profile)
+	alira.GetConnection().Save(&profile)
 
 	return map[interface{}]interface{}{
 		"user_id": userid,
