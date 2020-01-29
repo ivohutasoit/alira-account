@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/service"
-	"github.com/ivohutasoit/alira/model/account.
+	"github.com/ivohutasoit/alira/database/account"
 	"github.com/ivohutasoit/alira/util"
 )
 
