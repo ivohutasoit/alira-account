@@ -8,6 +8,14 @@
     <body >
         <div class="container">
             <h1 class="h3 mb-3 font-weight-normal text-center">Welcome to <code>Alira</code></h1>
+            {{ if .error }}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <span>{{ .error }}</span>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            {{ end }}
             <form class="form-account" method="POST" action="/account/register" autocomplete="off">
                 <div class="form-group">
                     <label for="payload" class="sr-only">Email</label>
@@ -18,17 +26,12 @@
                     <a class="btn btn-outline-danger btn-sm float-left" href="/" role="button" tabindex="3">Back to Home</a>
                     <button type="submit" class="btn btn-outline-primary btn-sm float-right" tabindex="2">Register</button>
                 </div>
+                <div class="my-4">
+                    Have an account? <a href="/auth/login" class="text-decoration-none">Log In</a>
+                </div>
             </form>
             
         </div>
-        {{ if .error }}
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <span>{{ .error }}</span>
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-        {{ end }}
         {{template "footer.tmpl.html"}}
     </body>
 </html>
