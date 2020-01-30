@@ -10,6 +10,7 @@ import (
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/service"
 	"github.com/ivohutasoit/alira/database/account"
+	"github.com/ivohutasoit/alira/messaging"
 	"github.com/ivohutasoit/alira/util"
 )
 
@@ -84,8 +85,8 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 			}
 			c.Redirect(http.StatusMovedPermanently, uri)
 		} else if req.Purpose == "REGISTER" {
-			accService := &service.AccountService{}
-			data, err = accService.ActivateRegistration(req.Referer, req.Token)
+			as := &service.Account{}
+			data, err = as.ActivateRegistration(req.Referer, req.Token)
 			if err != nil {
 				c.HTML(http.StatusUnauthorized, constant.TokenPage, gin.H{
 					"referer": req.Referer,
@@ -173,7 +174,7 @@ func (ctrl *TokenController) InfoHandler(c *gin.Context) {
 	}
 
 	tokenService := &service.TokenService{}
-	data, err := tokenService.GetTokenInformation(req.Type, req.Token)
+	data, err := tokenService.GetAuthenticated(req.Type, req.Token)
 	if err != nil {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -186,16 +187,21 @@ func (ctrl *TokenController) InfoHandler(c *gin.Context) {
 	}
 
 	user := data["user"].(*account.User)
+	userProfile := &messaging.UserProfile{
+		ID:            user.Model.ID,
+		Username:      user.Username,
+		Email:         user.Email,
+		PrimaryMobile: user.Mobile,
+		Active:        user.Active,
+		Avatar:        user.Avatar,
+	}
 
 	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    http.StatusOK,
 			"status":  http.StatusText(http.StatusOK),
 			"message": "Authenticated user",
-			"data": map[string]string{
-				"user_id":  user.Model.ID,
-				"username": user.Username,
-			},
+			"data":    userProfile,
 		})
 	}
 }

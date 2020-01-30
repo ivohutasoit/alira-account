@@ -77,7 +77,7 @@ func (s *TokenService) GenerateSessionToken(args ...interface{}) (map[interface{
 	}, nil
 }
 
-func (s *TokenService) GetTokenInformation(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *TokenService) GetAuthenticated(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameter")
 	}

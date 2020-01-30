@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/ivohutasoit/alira"
 	"github.com/ivohutasoit/alira-account/model"
-	alira "github.com/ivohutasoit/alira"
+	"github.com/ivohutasoit/alira/database/account"
 	"github.com/ivohutasoit/alira/service"
 	"github.com/ivohutasoit/alira/util"
 )
@@ -50,24 +50,21 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 	}
 	userid := strings.ToLower(param)
 	user := &account.User{}
-	alira.GetDatabase().First(user, "(username = ? OR email = ? OR mobile = ?) and active = ?",
+	alira.GetConnection().First(user, "(username = ? OR email = ? OR mobile = ?) and active = ?",
 		userid, userid, userid, true)
 	if user.Model.ID == "" {
 		return nil, errors.New("invalid user")
 	}
 
 	token := &account.Token{}
-	alira.GetDatabase().First(token, "valid = ? AND class = ? AND user_id = ?",
+	alira.GetConnection().First(token, "valid = ? AND class = ? AND user_id = ?",
 		true, "LOGIN", user.ID)
 	if token.Model.ID != "" {
 		token.Valid = false
-		alira.GetDatabase().Save(&token)
+		alira.GetConnection().Save(&token)
 	}
 
 	token = &account.Token{
-		BaseModel: alira.BaseModel{
-			ID: uuid.New().String(),
-		},
 		Class:       "LOGIN",
 		Referer:     user.Model.ID,
 		UserID:      user.Model.ID,
@@ -76,8 +73,8 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 		NotAfter:    time.Now().Add(time.Minute * 5),
 		Valid:       true,
 	}
-	alira.GetDatabase().Create(token)
-	mail := &account.Mail{
+	alira.GetConnection().Create(token)
+	mail := &service.Mail{
 		From:     os.Getenv("SMTP_SENDER"),
 		To:       []string{user.Email},
 		Subject:  "[Alira] Authentication Token",
@@ -126,14 +123,14 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 		}
 	}
 	token := &account.Token{}
-	alira.GetDatabase().First(token, "access_token = ? AND user_id = ? AND valid = ?",
+	alira.GetConnection().First(token, "access_token = ? AND user_id = ? AND valid = ?",
 		code, userid, true)
 	if token == nil {
 		return nil, errors.New("invalid token")
 	}
 
 	user := &account.User{}
-	alira.GetDatabase().First(user, "id = ? AND active = ?",
+	alira.GetConnection().First(user, "id = ? AND active = ?",
 		userid, true)
 	if user.Model.ID == "" {
 		return nil, errors.New("invalid user")
@@ -157,10 +154,10 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 		NotAfter:     expired,
 		Valid:        true,
 	}
-	alira.GetDatabase().Create(&sessionToken)
+	alira.GetConnection().Create(&sessionToken)
 
 	token.Valid = false
-	alira.GetDatabase().Save(&token)
+	alira.GetConnection().Save(&token)
 
 	if user.Username == "" {
 		data["profile"] = "required"
@@ -195,7 +192,7 @@ func (s *AuthService) GenerateRefreshToken(args ...interface{}) (map[interface{}
 		}
 	}
 	token := &account.Token{}
-	alira.GetDatabase().First(token, "refresh_token = ? AND user_id = ? AND valid = ?",
+	alira.GetConnection().First(token, "refresh_token = ? AND user_id = ? AND valid = ?",
 		refreshToken, userid, true)
 	if token == nil {
 		return nil, errors.New("invalid refresh token")
@@ -218,10 +215,10 @@ func (s *AuthService) GenerateRefreshToken(args ...interface{}) (map[interface{}
 		NotAfter:     expired,
 		Valid:        true,
 	}
-	alira.GetDatabase().Create(sessionToken)
+	alira.GetConnection().Create(sessionToken)
 
 	token.Valid = false
-	alira.GetDatabase().Update(token)
+	alira.GetConnection().Update(token)
 
 	return data, nil
 }
@@ -237,13 +234,13 @@ func (s *AuthService) RemoveSessionToken(args ...interface{}) (map[interface{}]i
 	}
 
 	token := &account.Token{}
-	alira.GetDatabase().First(token, "access_token = ? AND valid = ?", accessToken, true)
+	alira.GetConnection().First(token, "access_token = ? AND valid = ?", accessToken, true)
 	if token == nil {
 		return nil, errors.New("invalid token")
 	}
 
 	token.Valid = false
-	alira.GetDatabase().Save(&token)
+	alira.GetConnection().Save(&token)
 
 	return map[interface{}]interface{}{
 		"status":  "success",

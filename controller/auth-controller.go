@@ -9,6 +9,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/ivohutasoit/alira"
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/model"
 	"github.com/ivohutasoit/alira-account/service"
@@ -171,7 +172,6 @@ func LogoutPageHandler(c *gin.Context) {
 			return
 		}
 	} else {
-		fmt.Println("TESTING")
 		redirect := c.Query("redirect")
 		session := sessions.Default(c)
 		_, err := authService.RemoveSessionToken(session.Get("access_token"))
@@ -179,7 +179,9 @@ func LogoutPageHandler(c *gin.Context) {
 			fmt.Println(err.Error())
 		}
 
-		session.Clear()
+		session.Delete("access_token")
+		session.Delete("refresh_token")
+
 		session.Save()
 
 		if redirect != "" {
@@ -191,8 +193,9 @@ func LogoutPageHandler(c *gin.Context) {
 			c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s", uri))
 			return
 		}
-		uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
-		c.Redirect(http.StatusMovedPermanently, uri)
+
+		alira.ViewData = nil
+		c.Redirect(http.StatusMovedPermanently, "/")
 	}
 }
 

@@ -2,23 +2,24 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 	"time"
 
-	alira "github.com/ivohutasoit/alira"
+	"github.com/ivohutasoit/alira"
+	"github.com/ivohutasoit/alira/database/account"
 	"github.com/ivohutasoit/alira/service"
 	"github.com/ivohutasoit/alira/util"
 )
 
-type AccountService struct{}
+type Account struct{}
 
-func (s *AccountService) Create(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Account) Create(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 1 {
 		return nil, errors.New("not enough parameters")
 	}
 	var username, email, mobile, firstName, lastName string
+	active := false
 	for i, v := range args {
 		switch i {
 		case 1:
@@ -45,6 +46,12 @@ func (s *AccountService) Create(args ...interface{}) (map[interface{}]interface{
 				return nil, errors.New("plain text parameter not type string")
 			}
 			lastName = strings.Title(strings.TrimSpace(param))
+		case 5:
+			param, ok := v.(bool)
+			if !ok {
+				return nil, errors.New("plain parameter not type bool")
+			}
+			active = param
 		default:
 			param, ok := v.(string)
 			if !ok {
@@ -54,8 +61,8 @@ func (s *AccountService) Create(args ...interface{}) (map[interface{}]interface{
 		}
 	}
 	var users []account.User
-	alira.GetConnection().Where("active = ? AND (username = ? OR email = ? OR mobile = ?)",
-		true, username, email, mobile).Find(&users)
+	alira.GetConnection().Where("username = ? OR email = ? OR mobile = ?",
+		username, email, mobile).Find(&users)
 	if len(users) > 0 {
 		return nil, errors.New("username has been taken")
 	}
@@ -63,7 +70,7 @@ func (s *AccountService) Create(args ...interface{}) (map[interface{}]interface{
 		Username: username,
 		Email:    email,
 		Mobile:   mobile,
-		Active:   false,
+		Active:   active,
 	}
 	alira.GetConnection().Create(user)
 
@@ -75,12 +82,13 @@ func (s *AccountService) Create(args ...interface{}) (map[interface{}]interface{
 	alira.GetConnection().Create(profile)
 
 	return map[interface{}]interface{}{
-		"status": "SUCCESS",
-		"user":   user,
+		"status":  "SUCCESS",
+		"user":    user,
+		"profile": profile,
 	}, nil
 }
 
-func (s *AccountService) Get(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Account) Get(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 1 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -89,9 +97,9 @@ func (s *AccountService) Get(args ...interface{}) (map[interface{}]interface{}, 
 		return nil, errors.New("plain text parameter not type string")
 	}
 	user := &account.User{}
-	alira.GetConnection().First(&user, "id = ?", userid)
+	alira.GetConnection().Where("id = ?", userid).First(&user)
 	profile := &account.Profile{}
-	alira.GetConnection().First(&profile, "id = ?", userid)
+	alira.GetConnection().Where("id = ?", userid).First(&profile)
 
 	if user.Model.ID == "" {
 		return nil, errors.New("invalid user")
@@ -107,7 +115,7 @@ func (s *AccountService) Get(args ...interface{}) (map[interface{}]interface{}, 
 	}, nil
 }
 
-func (as *AccountService) SendRegisterToken(args ...interface{}) (map[interface{}]interface{}, error) {
+func (as *Account) SendRegisterToken(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -156,7 +164,7 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (map[interface{
 		Valid:       true,
 	}
 	if sentTo == "email" {
-		mail := &account.Mail{
+		mail := &service.Mail{
 			From:     os.Getenv("SMTP_SENDER"),
 			To:       []string{token.Referer},
 			Subject:  "[Alira] Registration Token",
@@ -182,7 +190,7 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (map[interface{
 	}, nil
 }
 
-func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interface{}]interface{}, error) {
+func (ac *Account) ActivateRegistration(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -215,7 +223,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 
 	profile := &account.Profile{}
 
-	subscribe := &account.Subscribe{
+	subscribe := &account.Subscription{
 		Code:      "BASIC",
 		Name:      "Basic Account",
 		Signature: util.GenerateToken(16),
@@ -246,7 +254,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 	profile.ID = user.Model.ID
 	alira.GetConnection().Create(&profile)
 
-	subscribe.SubscriberID = user.Model.ID
+	subscribe.Subscriber = user.Model.ID
 	alira.GetConnection().Create(&subscribe)
 
 	sessionToken.UserID = user.Model.ID
@@ -264,7 +272,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 	}, nil
 }
 
-func (s *AccountService) SaveProfile(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Account) SaveProfile(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 6 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -312,7 +320,6 @@ func (s *AccountService) SaveProfile(args ...interface{}) (map[interface{}]inter
 	user.Mobile = strings.TrimSpace(mobile)
 	alira.GetConnection().Save(&user)
 
-	profile.Name = strings.TrimSpace(fmt.Sprintf("%s %s", firstName, lastName))
 	profile.FirstName = strings.TrimSpace(firstName)
 	profile.LastName = strings.TrimSpace(lastName)
 	profile.Gender = strings.TrimSpace(gender)
