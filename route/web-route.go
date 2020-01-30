@@ -1,12 +1,7 @@
 package route
 
 import (
-	"net/http"
-
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	alira "github.com/ivohutasoit/alira"
-	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/controller"
 	"github.com/ivohutasoit/alira-account/middleware"
 )
@@ -16,21 +11,10 @@ type WebRoute struct{}
 func (route *WebRoute) Initialize(r *gin.Engine) {
 	authMiddleware := &middleware.Auth{}
 	web := r.Group("")
-	web.Use(authMiddleware.SessionHeaderRequired())
+	web.Use(authMiddleware.SessionRequired())
 	{
-		web.GET("/", func(c *gin.Context) {
-			session := sessions.Default(c)
-			session.Delete("message")
-			session.Save()
-			if alira.ViewData == nil {
-				alira.ViewData = gin.H{
-					"flash_message": session.Get("message"),
-				}
-			} else {
-				alira.ViewData["flash_message"] = session.Get("message")
-			}
-			c.HTML(http.StatusOK, constant.IndexPage, alira.ViewData)
-		})
+		indexController := &controller.Index{}
+		web.GET("", indexController.IndexHandler)
 
 		webauth := web.Group("/auth")
 		{

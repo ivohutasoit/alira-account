@@ -9,7 +9,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	alira "github.com/ivohutasoit/alira"
+	"github.com/ivohutasoit/alira"
 	"github.com/ivohutasoit/alira/database/account"
 	"github.com/ivohutasoit/alira/util"
 )

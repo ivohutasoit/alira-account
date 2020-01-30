@@ -11,7 +11,7 @@ type ApiRoute struct{}
 func (route *ApiRoute) Initialize(r *gin.Engine) {
 	authMiddleware := &middleware.Auth{}
 	api := r.Group("/api/alpha")
-	api.Use(authMiddleware.TokenHeaderRequired())
+	api.Use(authMiddleware.TokenRequired())
 	{
 		apiauth := api.Group("/auth")
 		{
@@ -20,11 +20,11 @@ func (route *ApiRoute) Initialize(r *gin.Engine) {
 			apiauth.POST("/verify", controller.VerifyQrcodeHandler)
 			apiauth.POST("/logout", controller.LogoutPageHandler)
 		}
-		account := &controller.AccountController{}
+		ac := &controller.Account{}
 		apiaccount := api.Group("/account")
 		{
-			apiaccount.POST("", account.CreateHandler)
-			apiaccount.GET("/:id", account.DetailHandler)
+			apiaccount.POST("", ac.CreateHandler)
+			apiaccount.GET("/:id", ac.DetailHandler)
 			apiaccount.POST("/register", controller.RegisterHandler)
 			apiaccount.POST("/profile", controller.ProfileHandler)
 			apiaccount.POST("/identity", controller.IdentityHandler)
