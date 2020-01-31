@@ -126,8 +126,11 @@ func AccountViewHandler(c *gin.Context) {
 }
 
 func RegisterHandler(c *gin.Context) {
+	redirect := c.Query("redirect")
 	if c.Request.Method == http.MethodGet {
-		c.HTML(http.StatusOK, constant.RegisterPage, nil)
+		c.HTML(http.StatusOK, constant.RegisterPage, gin.H{
+			"redirect": redirect,
+		})
 		return
 	}
 
@@ -150,7 +153,8 @@ func RegisterHandler(c *gin.Context) {
 	} else {
 		if err := c.ShouldBind(&request); err != nil {
 			c.HTML(http.StatusBadRequest, constant.RegisterPage, gin.H{
-				"error": err.Error(),
+				"redirect": redirect,
+				"error":    err.Error(),
 			})
 			return
 		}
@@ -170,6 +174,7 @@ func RegisterHandler(c *gin.Context) {
 
 // RegisterByEmailHandler for user registration using email address
 func RegisterByEmailHandler(c *gin.Context) {
+	redirect := c.Query("redirect")
 	if c.Request.Method == http.MethodGet {
 		c.HTML(http.StatusOK, constant.RegisterPage, nil)
 		return
@@ -187,6 +192,7 @@ func RegisterByEmailHandler(c *gin.Context) {
 			})
 		} else {
 			c.HTML(http.StatusOK, constant.RegisterPage, gin.H{
+				"redirect": redirect,
 				"error": err.Error(),
 			})
 		}
@@ -207,6 +213,7 @@ func RegisterByEmailHandler(c *gin.Context) {
 		}
 
 		c.HTML(http.StatusOK, constant.TokenPage, gin.H{
+			"redirect": redirect,
 			"referer": data["referer"].(string),
 			"purpose": data["purpose"].(string),
 			"message": data["message"].(string),
