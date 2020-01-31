@@ -58,6 +58,8 @@ func (m *Auth) SessionRequired(args ...interface{}) gin.HandlerFunc {
 		session := sessions.Default(c)
 		accessToken := session.Get("access_token")
 		if accessToken == nil && !opt {
+			session.Clear()
+			session.Save()
 			c.Redirect(http.StatusMovedPermanently, redirect)
 			c.Abort()
 			return
@@ -67,35 +69,52 @@ func (m *Auth) SessionRequired(args ...interface{}) gin.HandlerFunc {
 			token, err := jwt.ParseWithClaims(accessToken.(string), claims, func(token *jwt.Token) (interface{}, error) {
 				return []byte(os.Getenv("SECRET_KEY")), nil
 			})
-			if err != nil || !token.Valid {
+
+			if err != nil && !opt {
+				session.Clear()
+				session.Save()
 				c.Redirect(http.StatusMovedPermanently, redirect)
 				c.Abort()
 				return
 			}
 
-			sessionToken := &account.Token{}
-			alira.GetConnection().Where("access_token = ? AND valid = ?",
-				accessToken, true).First(sessionToken)
-			if sessionToken.Model.ID == "" && !opt {
+			if !token.Valid && !opt {
+				session.Clear()
+				session.Save()
 				c.Redirect(http.StatusMovedPermanently, redirect)
 				c.Abort()
 				return
 			}
 
-			user := &account.User{}
-			alira.GetConnection().Where("id = ? AND active = ?",
-				sessionToken.UserID, true).First(user)
-			if user.Model.ID == "" && !opt {
-				c.Redirect(http.StatusMovedPermanently, redirect)
-				c.Abort()
-				return
-			}
+			if token.Valid {
+				sessionToken := &account.Token{}
+				alira.GetConnection().Where("access_token = ? AND valid = ?",
+					accessToken, true).First(sessionToken)
+				if sessionToken.Model.ID == "" && !opt {
+					session.Clear()
+					session.Save()
+					c.Redirect(http.StatusMovedPermanently, redirect)
+					c.Abort()
+					return
+				}
 
-			c.Set("user_id", user.Model.ID)
-			alira.ViewData = gin.H{
-				"user_id":    user.Model.ID,
-				"username":   user.Username,
-				"url_logout": fmt.Sprintf("%s?redirect=%s", os.Getenv("URL_LOGOUT"), url),
+				user := &account.User{}
+				alira.GetConnection().Where("id = ? AND active = ?",
+					sessionToken.UserID, true).First(user)
+				if user.Model.ID == "" && !opt {
+					session.Clear()
+					session.Save()
+					c.Redirect(http.StatusMovedPermanently, redirect)
+					c.Abort()
+					return
+				}
+
+				c.Set("user_id", user.Model.ID)
+				alira.ViewData = gin.H{
+					"user_id":    user.Model.ID,
+					"username":   user.Username,
+					"url_logout": fmt.Sprintf("%s?redirect=%s", os.Getenv("URL_LOGOUT"), url),
+				}
 			}
 		}
 		c.Next()
