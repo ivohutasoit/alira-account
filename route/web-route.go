@@ -18,8 +18,9 @@ func (route *WebRoute) Initialize(r *gin.Engine) {
 
 		webauth := web.Group("/auth")
 		{
-			webauth.GET("/login", controller.LoginHandler)
-			webauth.POST("/login", controller.LoginHandler)
+			auth := &controller.Auth{}
+			webauth.GET("/login", auth.LoginHandler)
+			webauth.POST("/login", auth.LoginHandler)
 			webauth.GET("/qrcode", controller.GenerateImageQrcodeHandler)
 			webauth.GET("/socket", controller.StartSocketHandler)
 			webauth.GET("/logout", controller.LogoutPageHandler)

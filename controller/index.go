@@ -20,7 +20,7 @@ func (ctrl *Index) IndexHandler(c *gin.Context) {
 	redirect := c.Query("redirect")
 	session := sessions.Default(c)
 	if source != "" && source == "logout" {
-		authService := &service.AuthService{}
+		authService := &service.Auth{}
 		_, err := authService.RemoveSessionToken(session.Get("access_token"))
 		if err != nil {
 			fmt.Println(err.Error())

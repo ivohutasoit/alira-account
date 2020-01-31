@@ -14,16 +14,122 @@ import (
 	"github.com/ivohutasoit/alira-account/model"
 	"github.com/ivohutasoit/alira-account/service"
 	cstn "github.com/ivohutasoit/alira/constant"
+	"github.com/ivohutasoit/alira/database/account"
 	"github.com/ivohutasoit/alira/util"
 	ua "github.com/mileusna/useragent"
 	"github.com/skip2/go-qrcode"
 )
 
+type Auth struct{}
+
+func (ctrl *Auth) LoginHandler(c *gin.Context) {
+	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
+
+	redirect := c.Query("redirect")
+	auth := &service.Auth{}
+	socket, err := auth.GenerateLoginSocket(redirect)
+	if err != nil {
+		fmt.Printf("Error: %s", err.Error())
+	}
+	if c.Request.Method == http.MethodGet && !api {
+		c.HTML(http.StatusOK, constant.LoginPage, gin.H{
+			"code":     socket["code"].(string),
+			"redirect": redirect,
+		})
+		return
+	}
+	type Request struct {
+		AppID     string `form:"app_id" json:"app_id" xml:"app_id"`
+		AppSecret string `form:"app_secret" json:"app_secret" xml:"app_secret"`
+		UserID    string `form:"user_id" json:"user_id" xml:"user_id" binding:"required"`
+	}
+	var req Request
+	if api {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.Header("Content-Type", "application/json")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code":   400,
+				"status": "Bad Request",
+				"error":  err.Error(),
+			})
+			return
+		}
+	} else {
+		if err := c.ShouldBind(&req); err != nil {
+			c.HTML(http.StatusUnauthorized, constant.LoginPage, gin.H{
+				"code":     socket["code"].(string),
+				"redirect": redirect,
+				"error":    err.Error(),
+			})
+			return
+		}
+	}
+
+	as := &service.Auth{}
+	data, err := as.AuthenticateUser(req.UserID)
+	if err != nil {
+		if api {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"code":   http.StatusBadRequest,
+				"status": http.StatusText(http.StatusBadRequest),
+				"error":  err.Error(),
+			})
+			return
+		}
+		c.HTML(http.StatusBadRequest, constant.LoginPage, gin.H{
+			"code":     socket["code"].(string),
+			"redirect": redirect,
+			"error":    err.Error(),
+		})
+		return
+	}
+	user := data["user"].(*account.User)
+	if api {
+		if !user.UsePin {
+			c.JSON(http.StatusOK, gin.H{
+				"code":    http.StatusOK,
+				"status":  http.StatusText(http.StatusOK),
+				"message": "Login token has been sent to your email",
+				"data": map[string]interface{}{
+					"user_id": user.Model.ID,
+					"purpose": data["purpose"].(string),
+				},
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"status":  http.StatusText(http.StatusOK),
+			"message": "Please enter your pin",
+			"data": map[string]interface{}{
+				"user_id":      user.Model.ID,
+				"pin_required": user.UsePin,
+				"purpose":      data["purpose"].(string),
+			},
+		})
+		return
+	}
+	if !user.UsePin {
+		c.HTML(http.StatusOK, constant.TokenPage, gin.H{
+			"redirect": redirect,
+			"referer":  user.Model.ID,
+			"purpose":  data["purpose"].(string),
+		})
+		return
+	}
+
+	c.HTML(http.StatusUnauthorized, constant.LoginPage, gin.H{
+		"code":     socket["code"].(string),
+		"redirect": redirect,
+		"error":    "permission denied",
+	})
+}
+
 // LoginHandler manages login request to show page, form action and api
 func LoginHandler(c *gin.Context) {
 	redirect := c.Query("redirect")
 
-	auth := &service.AuthService{}
+	auth := &service.Auth{}
 	socket, err := auth.GenerateLoginSocket(redirect)
 	if err != nil {
 		fmt.Printf("Error: %s", err.Error())
@@ -112,8 +218,8 @@ func RefreshTokenHandler(c *gin.Context) {
 	userid := c.MustGet("userid")
 	tokens := strings.Split(c.Request.Header.Get("Authorization"), " ")
 
-	authService := &service.AuthService{}
-	data, err := authService.GenerateRefreshToken(userid, tokens[1])
+	Auth := &service.Auth{}
+	data, err := Auth.GenerateRefreshToken(userid, tokens[1])
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -148,10 +254,10 @@ func RefreshTokenHandler(c *gin.Context) {
 }
 
 func LogoutPageHandler(c *gin.Context) {
-	authService := &service.AuthService{}
+	Auth := &service.Auth{}
 	if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 		tokens := strings.Split(c.Request.Header.Get("Authorization"), " ")
-		data, err := authService.RemoveSessionToken(tokens[1])
+		data, err := Auth.RemoveSessionToken(tokens[1])
 		if err != nil {
 			c.Header("Content-Type", "application/json")
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -174,7 +280,7 @@ func LogoutPageHandler(c *gin.Context) {
 	} else {
 		redirect := c.Query("redirect")
 		session := sessions.Default(c)
-		_, err := authService.RemoveSessionToken(session.Get("access_token"))
+		_, err := Auth.RemoveSessionToken(session.Get("access_token"))
 		if err != nil {
 			fmt.Println(err.Error())
 		}
@@ -310,7 +416,7 @@ func VerifyQrcodeHandler(c *gin.Context) {
 			Socket: socket,
 		}
 
-		//auth := &service.AuthService{}
+		//auth := &service.Auth{}
 		//token, _ := auth.Login("Basic", "ivohutasoit", "hutasoit09")
 		session := sessions.Default(c)
 		//session.Set("access_token", token["access_token"])

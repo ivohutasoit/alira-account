@@ -13,9 +13,67 @@ import (
 	"github.com/ivohutasoit/alira/util"
 )
 
-type AuthService struct{}
+type Auth struct{}
 
-func (s *AuthService) GenerateLoginSocket(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Auth) AuthenticateUser(args ...interface{}) (map[interface{}]interface{}, error) {
+	if len(args) < 1 {
+		return nil, errors.New("not enough parameters")
+	}
+	param, ok := args[0].(string)
+	if !ok {
+		return nil, errors.New("plain text parameter not type string")
+	}
+	userid := strings.ToLower(param)
+	user := &account.User{}
+	alira.GetConnection().Where("(username = ? OR email = ? OR mobile = ?) AND active = ?",
+		userid, userid, userid, true).First(&user)
+	if user.Model.ID == "" {
+		return nil, errors.New("invalid login")
+	}
+
+	if !user.UsePin {
+		token := &account.Token{}
+		alira.GetConnection().Where("valid = ? AND class = ? AND user_id = ?",
+			true, "LOGIN", user.ID).First(&token)
+		if token.Model.ID != "" {
+			token.Valid = false
+			alira.GetConnection().Save(&token)
+		}
+
+		loginToken := &account.Token{
+			Class:       "LOGIN",
+			Referer:     user.Model.ID,
+			UserID:      user.Model.ID,
+			AccessToken: util.GenerateToken(6),
+			NotBefore:   time.Now(),
+			NotAfter:    time.Now().Add(time.Minute * 5),
+			Valid:       true,
+		}
+		alira.GetConnection().Create(loginToken)
+		mail := &service.Mail{
+			From:     os.Getenv("SMTP_SENDER"),
+			To:       []string{user.Email},
+			Subject:  "[Alira] Authentication Token",
+			Template: "views/mail/login.html",
+			Data: map[interface{}]interface{}{
+				"username": user.Username,
+				"token":    loginToken.AccessToken,
+				"interval": "5 minutes",
+			},
+		}
+		ms := &service.MailService{}
+		_, err := ms.Send(mail)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return map[interface{}]interface{}{
+		"purpose": "LOGIN",
+		"user":    user,
+	}, nil
+}
+
+func (s *Auth) GenerateLoginSocket(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 1 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -40,7 +98,7 @@ func (s *AuthService) GenerateLoginSocket(args ...interface{}) (map[interface{}]
 	}, nil
 }
 
-func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Auth) SendLoginToken(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 1 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -99,11 +157,12 @@ func (s *AuthService) SendLoginToken(args ...interface{}) (map[interface{}]inter
 	}, nil
 }
 
-func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Auth) VerifyLoginToken(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameters")
 	}
 	var userid, code string
+	customerUser := false
 	for i, p := range args {
 		switch i {
 		case 1:
@@ -112,6 +171,13 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 				return nil, errors.New("plain text parameter not type string")
 			}
 			code = param
+			break
+		case 2:
+			param, ok := p.(bool)
+			if !ok {
+				return nil, errors.New("plain text parameter not type boolean")
+			}
+			customerUser = param
 			break
 		default:
 			param, ok := p.(string)
@@ -122,32 +188,48 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 			break
 		}
 	}
-	token := &account.Token{}
-	alira.GetConnection().First(token, "access_token = ? AND user_id = ? AND valid = ?",
-		code, userid, true)
-	if token == nil {
-		return nil, errors.New("invalid token")
+	var user account.User
+	alira.GetConnection().Where("id = ? AND active = ?",
+		userid, true).First(&user)
+	if user.Model.ID == "" {
+		return nil, errors.New("invalid login")
 	}
 
-	user := &account.User{}
-	alira.GetConnection().First(user, "id = ? AND active = ?",
-		userid, true)
-	if user.Model.ID == "" {
-		return nil, errors.New("invalid user")
+	var token account.Token
+	if !customerUser || user.FirstTimeLogin {
+		alira.GetConnection().Where("access_token = ? AND user_id = ? AND valid = ?",
+			code, userid, true).First(&token)
+		if token.Model.ID == "" {
+			return nil, errors.New("invalid token")
+		}
+		token.Valid = false
+		alira.GetConnection().Save(&token)
+	}
+
+	if user.UsePin && user.Pin != code {
+		return nil, errors.New("invalid login")
+	}
+
+	var oldSessionToken account.Token
+	alira.GetConnection().Where("user_id = ? AND valid = ?",
+		user.Model.ID, true).First(&oldSessionToken)
+	if oldSessionToken.Model.ID != "" {
+		oldSessionToken.Valid = false
+		alira.GetConnection().Save(&oldSessionToken)
 	}
 
 	now := time.Now()
 	expired := now.AddDate(0, 0, 1)
 
 	ts := &TokenService{}
-	data, err := ts.GenerateSessionToken(userid, now, expired)
+	data, err := ts.GenerateSessionToken(user.Model.ID, now, expired)
 	if err != nil {
 		return nil, err
 	}
 
 	sessionToken := &account.Token{
 		Class:        "SESSION",
-		UserID:       userid,
+		UserID:       user.Model.ID,
 		AccessToken:  data["access_token"].(string),
 		RefreshToken: data["refresh_token"].(string),
 		NotBefore:    now,
@@ -156,9 +238,7 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 	}
 	alira.GetConnection().Create(&sessionToken)
 
-	token.Valid = false
-	alira.GetConnection().Save(&token)
-
+	data["user"] = user
 	if user.Username == "" {
 		data["profile"] = "required"
 	} else {
@@ -168,7 +248,7 @@ func (s *AuthService) VerifyLoginToken(args ...interface{}) (map[interface{}]int
 	return data, nil
 }
 
-func (s *AuthService) GenerateRefreshToken(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Auth) GenerateRefreshToken(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -223,7 +303,7 @@ func (s *AuthService) GenerateRefreshToken(args ...interface{}) (map[interface{}
 	return data, nil
 }
 
-func (s *AuthService) RemoveSessionToken(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Auth) RemoveSessionToken(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 1 {
 		return nil, errors.New("not enough parameters")
 	}

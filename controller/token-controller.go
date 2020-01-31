@@ -17,27 +17,30 @@ import (
 type TokenController struct{}
 
 func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
+	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
 	if c.Request.Method == http.MethodPost {
 		type Request struct {
-			Referer string `form:"referer" json:"referer" xml:"referer" binding:"required"`
-			Token   string `form:"token" json:"token" xml:"token" binding:"required"`
-			Purpose string `form:"purpose" json:"purpose" xml:"purpose" binding:"required"`
+			Referer      string `form:"referer" json:"referer" xml:"referer" binding:"required"`
+			Token        string `form:"token" json:"token" xml:"token" binding:"required"`
+			Purpose      string `form:"purpose" json:"purpose" xml:"purpose" binding:"required"`
+			CustomerUser bool   `form:"customer_user" json:"customer_user" xml:"customer_user"`
 		}
 		var req Request
-		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
+		if api {
 			if err := c.ShouldBindJSON(&req); err != nil {
-				c.Header("Content-Type", "application/json")
-				c.JSON(http.StatusBadRequest, gin.H{
-					"code":   400,
-					"status": "Bad Request",
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+					"code":   http.StatusBadRequest,
+					"status": http.StatusText(http.StatusBadRequest),
 					"error":  err.Error(),
 				})
 				return
 			}
 		} else {
 			if err := c.ShouldBind(&req); err != nil {
-				c.HTML(http.StatusUnauthorized, constant.TokenPage, gin.H{
-					"error": err.Error(),
+				c.HTML(http.StatusBadRequest, constant.TokenPage, gin.H{
+					"referer": req.Referer,
+					"purpose": req.Purpose,
+					"error":   err.Error(),
 				})
 				return
 			}
@@ -45,8 +48,8 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 		var data map[interface{}]interface{}
 		var err error
 		if req.Purpose == "LOGIN" {
-			authService := &service.AuthService{}
-			data, err = authService.VerifyLoginToken(req.Referer, req.Token)
+			authService := &service.Auth{}
+			data, err = authService.VerifyLoginToken(req.Referer, req.Token, req.CustomerUser)
 			if err != nil {
 				c.HTML(http.StatusUnauthorized, constant.TokenPage, gin.H{
 					"referer": req.Referer,
@@ -55,11 +58,10 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 				})
 				return
 			}
-			if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
-				c.Header("Content-Type", "application/json")
+			if api {
 				c.JSON(http.StatusOK, gin.H{
-					"code":   200,
-					"status": "OK",
+					"code":   http.StatusOK,
+					"status": http.StatusText(http.StatusOK),
 					"data": map[string]string{
 						"access_token":  data["access_token"].(string),
 						"refresh_token": data["refresh_token"].(string),
@@ -95,11 +97,10 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 				})
 				return
 			}
-			if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
-				c.Header("Content-Type", "application/json")
+			if api {
 				c.JSON(http.StatusOK, gin.H{
-					"code":   200,
-					"status": "OK",
+					"code":   http.StatusOK,
+					"status": http.StatusText(http.StatusOK),
 					"data": map[string]string{
 						"userid":        data["userid"].(string),
 						"access_token":  data["access_token"].(string),
@@ -117,6 +118,8 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 
 			uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/account/profile?action=complete", false)
 			c.Redirect(http.StatusMovedPermanently, uri)
+		} else {
+
 		}
 	}
 }
