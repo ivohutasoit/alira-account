@@ -16,7 +16,7 @@
                 </button>
             </div>
             {{ end }}
-            <form class="form-account" method="POST" action="/account/register" autocomplete="off">
+            <form class="form-account" method="POST" action="/account/register{{ if .redirect }}?redirect={{.redirect}}{{ end }}" autocomplete="off">
                 <div class="form-group">
                     <label for="payload" class="sr-only">Email</label>
                     <input type="text" tabindex="1" class="form-control" id="userid" name="userid" placeholder="Email address" required>
