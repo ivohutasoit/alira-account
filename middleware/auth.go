@@ -40,7 +40,7 @@ func (m *Auth) SessionRequired(args ...interface{}) gin.HandlerFunc {
 					break
 				} else {
 					if c.Request.Method == http.MethodGet {
-						if strings.Index(currentPath, value) > 0 {
+						if strings.Index(currentPath, value) > -1 {
 							opt = true
 							return
 						}
@@ -124,17 +124,18 @@ func (m *Auth) SessionRequired(args ...interface{}) gin.HandlerFunc {
 func (m *Auth) TokenRequired(args ...interface{}) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		currentPath := c.Request.URL.Path
+		urlAPI := os.Getenv("URL_API")
 		except := os.Getenv("API_EXCEPT")
 		if except != "" {
 			excepts := strings.Split(except, ";")
 
 			for _, value := range excepts {
 				if c.Request.Method == http.MethodGet {
-					if strings.Index(currentPath, value) > 0 {
+					if strings.Index(currentPath, value) > -1 {
 						c.Next()
 						return
 					}
-				} else if currentPath == strings.TrimSpace(value) {
+				} else if currentPath == strings.TrimSpace(fmt.Sprintf("%s%s", urlAPI, value)) {
 					c.Next()
 					return
 				}
