@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -61,7 +60,6 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 				})
 				return
 			}
-			fmt.Println(data)
 			if api {
 				c.JSON(http.StatusOK, gin.H{
 					"code":    http.StatusOK,
