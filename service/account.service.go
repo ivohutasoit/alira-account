@@ -247,9 +247,9 @@ func (ac *Account) ActivateRegistration(args ...interface{}) (map[interface{}]in
 		}
 	}
 	token := &account.Token{}
-	alira.GetConnection().First(token, "access_token = ? AND referer = ? AND valid = ? AND class = ?",
-		code, referer, true, "REGISTER")
-	if token == nil {
+	alira.GetConnection().Where("access_token = ? AND referer = ? AND valid = ? AND class = ?",
+		code, referer, true, "REGISTER").First(&token)
+	if token.ID == "" {
 		return nil, errors.New("invalid token")
 	}
 
@@ -261,6 +261,7 @@ func (ac *Account) ActivateRegistration(args ...interface{}) (map[interface{}]in
 	profile := &account.Profile{}
 
 	subscribe := &account.Subscription{
+		Class:     "USERTYPE",
 		Code:      "BASIC",
 		Name:      "Basic Account",
 		Signature: util.GenerateToken(16),
