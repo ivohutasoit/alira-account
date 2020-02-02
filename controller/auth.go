@@ -44,6 +44,7 @@ func (ctrl *Auth) LoginHandler(c *gin.Context) {
 		UserID    string `form:"user_id" json:"user_id" xml:"user_id" binding:"required"`
 	}
 	var req Request
+	fmt.Println(req.UserID)
 	if api {
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.Header("Content-Type", "application/json")

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -45,11 +46,13 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 				return
 			}
 		}
+
 		var data map[interface{}]interface{}
 		var err error
 		if req.Purpose == "LOGIN" {
+
 			authService := &service.Auth{}
-			data, err = authService.VerifyLoginToken(req.Referer, req.Token, req.CustomerUser)
+			data, err = authService.VerifyToken(req.Referer, req.Token)
 			if err != nil {
 				c.HTML(http.StatusUnauthorized, constant.TokenPage, gin.H{
 					"referer": req.Referer,
@@ -58,10 +61,12 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 				})
 				return
 			}
+			fmt.Println(data)
 			if api {
 				c.JSON(http.StatusOK, gin.H{
-					"code":   http.StatusOK,
-					"status": http.StatusText(http.StatusOK),
+					"code":    http.StatusOK,
+					"status":  http.StatusText(http.StatusOK),
+					"message": "Authentication successful",
 					"data": map[string]string{
 						"access_token":  data["access_token"].(string),
 						"refresh_token": data["refresh_token"].(string),

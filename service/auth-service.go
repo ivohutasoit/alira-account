@@ -23,10 +23,14 @@ func (s *Auth) AuthenticateUser(args ...interface{}) (map[interface{}]interface{
 	if !ok {
 		return nil, errors.New("plain text parameter not type string")
 	}
-	userid := strings.ToLower(param)
 	user := &account.User{}
-	alira.GetConnection().Where("(username = ? OR email = ? OR mobile = ?) AND active = ?",
-		userid, userid, userid, true).First(&user)
+	alira.GetConnection().Where("id = ? AND (active = ? OR first_time_login= ?)",
+		param, true, true).First(&user)
+	if user.Model.ID == "" {
+		userid := strings.ToLower(param)
+		alira.GetConnection().Where("(username = ? OR email = ? OR mobile = ?) AND (active = ? OR first_time_login= ?)",
+			userid, userid, userid, userid, true, true).First(&user)
+	}
 	if user.Model.ID == "" {
 		return nil, errors.New("invalid login")
 	}
@@ -157,12 +161,11 @@ func (s *Auth) SendLoginToken(args ...interface{}) (map[interface{}]interface{},
 	}, nil
 }
 
-func (s *Auth) VerifyLoginToken(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Auth) VerifyToken(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameters")
 	}
 	var userid, code string
-	customerUser := false
 	for i, p := range args {
 		switch i {
 		case 1:
@@ -171,13 +174,6 @@ func (s *Auth) VerifyLoginToken(args ...interface{}) (map[interface{}]interface{
 				return nil, errors.New("plain text parameter not type string")
 			}
 			code = param
-			break
-		case 2:
-			param, ok := p.(bool)
-			if !ok {
-				return nil, errors.New("plain text parameter not type boolean")
-			}
-			customerUser = param
 			break
 		default:
 			param, ok := p.(string)
@@ -189,25 +185,25 @@ func (s *Auth) VerifyLoginToken(args ...interface{}) (map[interface{}]interface{
 		}
 	}
 	var user account.User
-	alira.GetConnection().Where("id = ? AND active = ?",
-		userid, true).First(&user)
+	alira.GetConnection().Where("id = ? AND (active = ? OR first_time_login = ?)",
+		userid, true, true).First(&user)
 	if user.Model.ID == "" {
 		return nil, errors.New("invalid login")
 	}
 
-	var token account.Token
-	if !customerUser || user.FirstTimeLogin {
-		alira.GetConnection().Where("access_token = ? AND user_id = ? AND valid = ?",
-			code, userid, true).First(&token)
-		if token.Model.ID == "" {
-			return nil, errors.New("invalid token")
-		}
-		token.Valid = false
-		alira.GetConnection().Save(&token)
-	}
-
 	if user.UsePin && user.Pin != code {
 		return nil, errors.New("invalid login")
+	} else if !user.UsePin {
+		var token account.Token
+		if user.FirstTimeLogin {
+			alira.GetConnection().Where("access_token = ? AND user_id = ? AND valid = ?",
+				code, userid, true).First(&token)
+			if token.Model.ID == "" {
+				return nil, errors.New("invalid token")
+			}
+			token.Valid = false
+			alira.GetConnection().Save(&token)
+		}
 	}
 
 	var oldSessionToken account.Token
@@ -237,6 +233,12 @@ func (s *Auth) VerifyLoginToken(args ...interface{}) (map[interface{}]interface{
 		Valid:        true,
 	}
 	alira.GetConnection().Create(&sessionToken)
+
+	if user.FirstTimeLogin {
+		user.Active = true
+		user.FirstTimeLogin = false
+		alira.GetConnection().Save(&user)
+	}
 
 	data["user"] = user
 	if user.Username == "" {

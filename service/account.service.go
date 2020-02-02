@@ -19,7 +19,7 @@ func (s *Account) Create(args ...interface{}) (map[interface{}]interface{}, erro
 		return nil, errors.New("not enough parameters")
 	}
 	var username, email, mobile, firstName, lastName string
-	active := false
+	active, customerUser := false, false
 	for i, v := range args {
 		switch i {
 		case 1:
@@ -52,6 +52,12 @@ func (s *Account) Create(args ...interface{}) (map[interface{}]interface{}, erro
 				return nil, errors.New("plain parameter not type bool")
 			}
 			active = param
+		case 6:
+			param, ok := v.(bool)
+			if !ok {
+				return nil, errors.New("plain parameter not type bool")
+			}
+			customerUser = param
 		default:
 			param, ok := v.(string)
 			if !ok {
@@ -67,10 +73,11 @@ func (s *Account) Create(args ...interface{}) (map[interface{}]interface{}, erro
 		return nil, errors.New("username has been taken")
 	}
 	user := &account.User{
-		Username: username,
-		Email:    email,
-		Mobile:   mobile,
-		Active:   active,
+		Username:       username,
+		Email:          email,
+		Mobile:         mobile,
+		Active:         active,
+		FirstTimeLogin: customerUser,
 	}
 	alira.GetConnection().Create(user)
 
@@ -112,6 +119,36 @@ func (s *Account) Get(args ...interface{}) (map[interface{}]interface{}, error) 
 	return map[interface{}]interface{}{
 		"user":    user,
 		"profile": profile,
+	}, nil
+}
+
+func (s *Account) ChangeUserPin(args ...interface{}) (map[interface{}]interface{}, error) {
+	if len(args) < 2 {
+		return nil, errors.New("not enough parameter")
+	}
+	userid, ok := args[0].(string)
+	if !ok {
+		return nil, errors.New("plain text is not type string")
+	}
+	pin, ok := args[1].(string)
+	if !ok {
+		return nil, errors.New("plain text is not type string")
+	}
+	user := &account.User{}
+	alira.GetConnection().Where("id = ? AND active = ?",
+		userid, true).First(&user)
+	if user.Model.ID == "" {
+		return nil, errors.New("invalid user")
+	}
+	if !user.UsePin {
+		user.UsePin = true
+	}
+	user.Pin = strings.TrimSpace(pin)
+	alira.GetConnection().Save(&user)
+
+	return map[interface{}]interface{}{
+		"message": "User pin has been changed",
+		"user":    user,
 	}, nil
 }
 

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -23,12 +24,13 @@ func (ctrl *Account) CreateHandler(c *gin.Context) {
 	}
 
 	type Request struct {
-		Username  string `form:"username" json:"username" xml:"username"`
-		Email     string `form:"email" json:"email" xml:"email" binding:"required"`
-		Mobile    string `form:"mobile" json:"mobile" xml:"mobile" binding:"required"`
-		FirstName string `form:"first_name" json:"first_name" xml:"first_name" binding:"required"`
-		LastName  string `form:"last_name" json:"last_name" xml:"last_name" binding:"required"`
-		Active    bool   `form:"active" json:"active" xml:"active"`
+		Username     string `form:"username" json:"username" xml:"username"`
+		Email        string `form:"email" json:"email" xml:"email" binding:"required"`
+		Mobile       string `form:"mobile" json:"mobile" xml:"mobile" binding:"required"`
+		FirstName    string `form:"first_name" json:"first_name" xml:"first_name" binding:"required"`
+		LastName     string `form:"last_name" json:"last_name" xml:"last_name" binding:"required"`
+		Active       bool   `form:"active" json:"active" xml:"active"`
+		CustomerUser bool   `form:"customer_user" json:"customer_user" xml:"customer_user"`
 	}
 
 	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
@@ -43,7 +45,7 @@ func (ctrl *Account) CreateHandler(c *gin.Context) {
 		}
 	}
 	as := &service.Account{}
-	data, err := as.Create(req.Username, req.Email, req.Mobile, req.FirstName, req.LastName, req.Active)
+	data, err := as.Create(req.Username, req.Email, req.Mobile, req.FirstName, req.LastName, req.Active, req.CustomerUser)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"code":   http.StatusBadRequest,
@@ -71,6 +73,43 @@ func (ctrl *Account) CreateHandler(c *gin.Context) {
 			"status":  http.StatusText(http.StatusCreated),
 			"message": "User has been created",
 			"data":    userProfile,
+		})
+		return
+	}
+}
+
+func (ctrl *Account) ChangePinHandler(c *gin.Context) {
+	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
+	type Request struct {
+		Pin string `form:"pin" json:"pin" xml:"pin" binding:"required,min=6"`
+	}
+	var req Request
+	if api {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"code":   http.StatusBadRequest,
+				"status": http.StatusText(http.StatusBadRequest),
+				"error":  err.Error(),
+			})
+		}
+	}
+	as := &service.Account{}
+	data, err := as.ChangeUserPin(c.GetString("user_id"), req.Pin)
+	if err != nil {
+		if api {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"code":   http.StatusBadRequest,
+				"status": http.StatusText(http.StatusBadRequest),
+				"error":  err.Error(),
+			})
+			return
+		}
+	}
+	if api {
+		c.JSON(http.StatusCreated, gin.H{
+			"code":    http.StatusAccepted,
+			"status":  http.StatusText(http.StatusAccepted),
+			"message": data["message"].(string),
 		})
 	}
 }
@@ -193,7 +232,7 @@ func RegisterByEmailHandler(c *gin.Context) {
 		} else {
 			c.HTML(http.StatusOK, constant.RegisterPage, gin.H{
 				"redirect": redirect,
-				"error": err.Error(),
+				"error":    err.Error(),
 			})
 		}
 		return
@@ -214,9 +253,9 @@ func RegisterByEmailHandler(c *gin.Context) {
 
 		c.HTML(http.StatusOK, constant.TokenPage, gin.H{
 			"redirect": redirect,
-			"referer": data["referer"].(string),
-			"purpose": data["purpose"].(string),
-			"message": data["message"].(string),
+			"referer":  data["referer"].(string),
+			"purpose":  data["purpose"].(string),
+			"message":  data["message"].(string),
 		})
 	}
 }
@@ -233,6 +272,7 @@ func ProfileHandler(c *gin.Context) {
 	if action == "" {
 		action = "view"
 	}
+	fmt.Println(c.GetString("user_id"))
 	as := &service.Account{}
 	data, err := as.Get(c.GetString("user_id"))
 	if err != nil {
@@ -244,6 +284,7 @@ func ProfileHandler(c *gin.Context) {
 				"error":  err.Error(),
 			})
 		} else {
+			fmt.Println(err.Error())
 			c.HTML(http.StatusBadRequest, constant.ProfilePage, gin.H{
 				"user_id": c.GetString("user_id"),
 				"error":   err.Error(),

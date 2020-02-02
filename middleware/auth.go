@@ -38,7 +38,7 @@ func (m *Auth) SessionRequired(args ...interface{}) gin.HandlerFunc {
 				if value == "/" && (currentPath == "" || currentPath == "/") {
 					opt = true
 					break
-				} else {
+				} else if value != "/" {
 					if c.Request.Method == http.MethodGet {
 						if strings.Index(currentPath, value) > -1 {
 							opt = true
@@ -86,35 +86,33 @@ func (m *Auth) SessionRequired(args ...interface{}) gin.HandlerFunc {
 				return
 			}
 
-			if token.Valid {
-				sessionToken := &account.Token{}
-				alira.GetConnection().Where("access_token = ? AND valid = ?",
-					accessToken, true).First(sessionToken)
-				if sessionToken.Model.ID == "" && !opt {
-					session.Clear()
-					session.Save()
-					c.Redirect(http.StatusMovedPermanently, redirect)
-					c.Abort()
-					return
-				}
+			sessionToken := &account.Token{}
+			alira.GetConnection().Where("access_token = ? AND valid = ?",
+				accessToken, true).First(sessionToken)
+			if sessionToken.Model.ID == "" && !opt {
+				session.Clear()
+				session.Save()
+				c.Redirect(http.StatusMovedPermanently, redirect)
+				c.Abort()
+				return
+			}
 
-				user := &account.User{}
-				alira.GetConnection().Where("id = ? AND active = ?",
-					sessionToken.UserID, true).First(user)
-				if user.Model.ID == "" && !opt {
-					session.Clear()
-					session.Save()
-					c.Redirect(http.StatusMovedPermanently, redirect)
-					c.Abort()
-					return
-				}
+			user := &account.User{}
+			alira.GetConnection().Where("id = ? AND active = ?",
+				sessionToken.UserID, true).First(user)
+			if user.Model.ID == "" && !opt {
+				session.Clear()
+				session.Save()
+				c.Redirect(http.StatusMovedPermanently, redirect)
+				c.Abort()
+				return
+			}
 
-				c.Set("user_id", user.Model.ID)
-				alira.ViewData = gin.H{
-					"user_id":    user.Model.ID,
-					"username":   user.Username,
-					"url_logout": fmt.Sprintf("%s?redirect=%s", os.Getenv("URL_LOGOUT"), url),
-				}
+			c.Set("user_id", user.Model.ID)
+			alira.ViewData = gin.H{
+				"user_id":    user.Model.ID,
+				"username":   user.Username,
+				"url_logout": fmt.Sprintf("%s?redirect=%s", os.Getenv("URL_LOGOUT"), url),
 			}
 		}
 		c.Next()
@@ -189,7 +187,6 @@ func (m *Auth) TokenRequired(args ...interface{}) gin.HandlerFunc {
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 			return []byte(os.Getenv("SECRET_KEY")), nil
 		})
-
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code":   http.StatusUnauthorized,

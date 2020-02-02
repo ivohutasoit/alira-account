@@ -13,9 +13,10 @@ func (route *ApiRoute) Initialize(r *gin.Engine) {
 	api := r.Group("/api/alpha")
 	api.Use(authMiddleware.TokenRequired())
 	{
+		auth := &controller.Auth{}
 		apiauth := api.Group("/auth")
 		{
-			apiauth.POST("/login", controller.LoginHandler)
+			apiauth.POST("/login", auth.LoginHandler)
 			apiauth.POST("/refresh", controller.RefreshTokenHandler)
 			apiauth.POST("/verify", controller.VerifyQrcodeHandler)
 			apiauth.POST("/logout", controller.LogoutPageHandler)
@@ -25,6 +26,7 @@ func (route *ApiRoute) Initialize(r *gin.Engine) {
 		{
 			apiaccount.POST("", ac.CreateHandler)
 			apiaccount.GET("/:id", ac.DetailHandler)
+			apiaccount.POST("/pin", ac.ChangePinHandler)
 			apiaccount.POST("/register", controller.RegisterHandler)
 			apiaccount.POST("/profile", controller.ProfileHandler)
 			apiaccount.POST("/identity", controller.IdentityHandler)
