@@ -2,24 +2,24 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/ivohutasoit/alira/model"
-	"github.com/ivohutasoit/alira/model/domain"
+	"github.com/ivohutasoit/alira"
+	"github.com/ivohutasoit/alira/database/account"
 	"github.com/ivohutasoit/alira/service"
 	"github.com/ivohutasoit/alira/util"
 )
 
-type AccountService struct{}
+type Account struct{}
 
-func (s *AccountService) Create(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Account) Create(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 1 {
 		return nil, errors.New("not enough parameters")
 	}
 	var username, email, mobile, firstName, lastName string
+	active, customerUser := false, false
 	for i, v := range args {
 		switch i {
 		case 1:
@@ -46,6 +46,18 @@ func (s *AccountService) Create(args ...interface{}) (map[interface{}]interface{
 				return nil, errors.New("plain text parameter not type string")
 			}
 			lastName = strings.Title(strings.TrimSpace(param))
+		case 5:
+			param, ok := v.(bool)
+			if !ok {
+				return nil, errors.New("plain parameter not type bool")
+			}
+			active = param
+		case 6:
+			param, ok := v.(bool)
+			if !ok {
+				return nil, errors.New("plain parameter not type bool")
+			}
+			customerUser = param
 		default:
 			param, ok := v.(string)
 			if !ok {
@@ -54,38 +66,36 @@ func (s *AccountService) Create(args ...interface{}) (map[interface{}]interface{
 			username = strings.ToLower(strings.TrimSpace(param))
 		}
 	}
-	fmt.Println("Step 1")
-	var users []domain.User
-	model.GetDatabase().Where("active = ? AND (username = ? OR email = ? OR mobile = ?)",
-		true, username, email, mobile).Find(&users)
+	var users []account.User
+	alira.GetConnection().Where("username = ? OR email = ? OR mobile = ?",
+		username, email, mobile).Find(&users)
 	if len(users) > 0 {
 		return nil, errors.New("username has been taken")
 	}
-	fmt.Println("Step 2")
-	user := &domain.User{
-		Username: username,
-		Email:    email,
-		Mobile:   mobile,
-		Active:   false,
+	user := &account.User{
+		Username:       username,
+		Email:          email,
+		Mobile:         mobile,
+		Active:         active,
+		FirstTimeLogin: customerUser,
 	}
-	model.GetDatabase().Create(user)
+	alira.GetConnection().Create(user)
 
-	fmt.Println("Step 3")
-	profile := &domain.Profile{
-		ID:        user.BaseModel.ID,
+	profile := &account.Profile{
+		ID:        user.Model.ID,
 		FirstName: firstName,
 		LastName:  lastName,
 	}
-	model.GetDatabase().Create(profile)
+	alira.GetConnection().Create(profile)
 
-	fmt.Println("Step 4")
 	return map[interface{}]interface{}{
-		"status": "SUCCESS",
-		"user":   user,
+		"status":  "SUCCESS",
+		"user":    user,
+		"profile": profile,
 	}, nil
 }
 
-func (s *AccountService) Get(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Account) Get(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 1 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -93,12 +103,12 @@ func (s *AccountService) Get(args ...interface{}) (map[interface{}]interface{}, 
 	if !ok {
 		return nil, errors.New("plain text parameter not type string")
 	}
-	user := &domain.User{}
-	model.GetDatabase().First(&user, "id = ?", userid)
-	profile := &domain.Profile{}
-	model.GetDatabase().First(&profile, "id = ?", userid)
+	user := &account.User{}
+	alira.GetConnection().Where("id = ?", userid).First(&user)
+	profile := &account.Profile{}
+	alira.GetConnection().Where("id = ?", userid).First(&profile)
 
-	if user.BaseModel.ID == "" {
+	if user.Model.ID == "" {
 		return nil, errors.New("invalid user")
 	}
 
@@ -112,7 +122,37 @@ func (s *AccountService) Get(args ...interface{}) (map[interface{}]interface{}, 
 	}, nil
 }
 
-func (as *AccountService) SendRegisterToken(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Account) ChangeUserPin(args ...interface{}) (map[interface{}]interface{}, error) {
+	if len(args) < 2 {
+		return nil, errors.New("not enough parameter")
+	}
+	userid, ok := args[0].(string)
+	if !ok {
+		return nil, errors.New("plain text is not type string")
+	}
+	pin, ok := args[1].(string)
+	if !ok {
+		return nil, errors.New("plain text is not type string")
+	}
+	user := &account.User{}
+	alira.GetConnection().Where("id = ? AND active = ?",
+		userid, true).First(&user)
+	if user.Model.ID == "" {
+		return nil, errors.New("invalid user")
+	}
+	if !user.UsePin {
+		user.UsePin = true
+	}
+	user.Pin = strings.TrimSpace(pin)
+	alira.GetConnection().Save(&user)
+
+	return map[interface{}]interface{}{
+		"message": "User pin has been changed",
+		"user":    user,
+	}, nil
+}
+
+func (as *Account) SendRegisterToken(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -137,22 +177,22 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (map[interface{
 		}
 	}
 
-	user := &domain.User{}
-	model.GetDatabase().First(user, "active = ? AND (username = ? OR email = ? OR mobile = ?)",
+	user := &account.User{}
+	alira.GetConnection().First(user, "active = ? AND (username = ? OR email = ? OR mobile = ?)",
 		true, payload, payload, payload)
-	if user.BaseModel.ID != "" {
+	if user.Model.ID != "" {
 		return nil, errors.New("user already exists")
 	}
 
-	token := &domain.Token{}
-	model.GetDatabase().First(token, "valid = ? AND class = ? AND referer = ?", true, "REGISTER", payload)
+	token := &account.Token{}
+	alira.GetConnection().First(token, "valid = ? AND class = ? AND referer = ?", true, "REGISTER", payload)
 
 	if token != nil {
 		token.Valid = false
-		model.GetDatabase().Save(&token)
+		alira.GetConnection().Save(&token)
 	}
 
-	token = &domain.Token{
+	token = &account.Token{
 		Referer:     payload,
 		Class:       "REGISTER",
 		AccessToken: util.GenerateToken(6),
@@ -161,7 +201,7 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (map[interface{
 		Valid:       true,
 	}
 	if sentTo == "email" {
-		mail := &domain.Mail{
+		mail := &service.Mail{
 			From:     os.Getenv("SMTP_SENDER"),
 			To:       []string{token.Referer},
 			Subject:  "[Alira] Registration Token",
@@ -177,7 +217,7 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (map[interface{
 		}
 	}
 
-	model.GetDatabase().Create(token)
+	alira.GetConnection().Create(token)
 
 	return map[interface{}]interface{}{
 		"status":  "SUCCESS",
@@ -187,7 +227,7 @@ func (as *AccountService) SendRegisterToken(args ...interface{}) (map[interface{
 	}, nil
 }
 
-func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interface{}]interface{}, error) {
+func (ac *Account) ActivateRegistration(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -206,21 +246,21 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 			break
 		}
 	}
-	token := &domain.Token{}
-	model.GetDatabase().First(token, "access_token = ? AND referer = ? AND valid = ? AND class = ?",
+	token := &account.Token{}
+	alira.GetConnection().First(token, "access_token = ? AND referer = ? AND valid = ? AND class = ?",
 		code, referer, true, "REGISTER")
 	if token == nil {
 		return nil, errors.New("invalid token")
 	}
 
-	user := &domain.User{
+	user := &account.User{
 		Email:  token.Referer,
 		Active: true,
 	}
 
-	profile := &domain.Profile{}
+	profile := &account.Profile{}
 
-	subscribe := &domain.Subscribe{
+	subscribe := &account.Subscription{
 		Code:      "BASIC",
 		Name:      "Basic Account",
 		Signature: util.GenerateToken(16),
@@ -228,7 +268,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 		AgreedAt:  time.Now(),
 	}
 
-	sessionToken := &domain.Token{
+	sessionToken := &account.Token{
 		Class:     "SESSION",
 		NotBefore: time.Now(),
 		NotAfter:  time.Now().Add(time.Hour * 12),
@@ -238,7 +278,7 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 	expired := now.AddDate(0, 0, 1)
 
 	ts := &TokenService{}
-	data, err := ts.GenerateSessionToken(user.BaseModel.ID, now, expired)
+	data, err := ts.GenerateSessionToken(user.Model.ID, now, expired)
 	if err != nil {
 		return nil, err
 	}
@@ -246,30 +286,30 @@ func (ac *AccountService) ActivateRegistration(args ...interface{}) (map[interfa
 	sessionToken.AccessToken = data["access_token"].(string)
 	sessionToken.RefreshToken = data["refresh_token"].(string)
 
-	model.GetDatabase().Create(&user)
+	alira.GetConnection().Create(&user)
 
-	profile.ID = user.BaseModel.ID
-	model.GetDatabase().Create(&profile)
+	profile.ID = user.Model.ID
+	alira.GetConnection().Create(&profile)
 
-	subscribe.SubscriberID = user.BaseModel.ID
-	model.GetDatabase().Create(&subscribe)
+	subscribe.Subscriber = user.Model.ID
+	alira.GetConnection().Create(&subscribe)
 
-	sessionToken.UserID = user.BaseModel.ID
-	model.GetDatabase().Create(&sessionToken)
+	sessionToken.UserID = user.Model.ID
+	alira.GetConnection().Create(&sessionToken)
 
-	token.UserID = user.BaseModel.ID
+	token.UserID = user.Model.ID
 	token.Valid = false
-	model.GetDatabase().Save(&token)
+	alira.GetConnection().Save(&token)
 
 	return map[interface{}]interface{}{
-		"user_id":       user.BaseModel.ID,
+		"user_id":       user.Model.ID,
 		"email":         user.Email,
 		"access_token":  sessionToken.AccessToken,
 		"refresh_token": sessionToken.RefreshToken,
 	}, nil
 }
 
-func (s *AccountService) SaveProfile(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Account) SaveProfile(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 6 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -300,28 +340,27 @@ func (s *AccountService) SaveProfile(args ...interface{}) (map[interface{}]inter
 			userid = param
 		}
 	}
-	user := &domain.User{}
-	model.GetDatabase().First(user, "id = ? AND active = ?", userid, true)
+	user := &account.User{}
+	alira.GetConnection().First(user, "id = ? AND active = ?", userid, true)
 
-	if user.BaseModel.ID == "" {
+	if user.Model.ID == "" {
 		return nil, errors.New("invalid user")
 	}
 
-	profile := &domain.Profile{}
-	model.GetDatabase().First(profile, "id = ?", user.BaseModel.ID)
+	profile := &account.Profile{}
+	alira.GetConnection().First(profile, "id = ?", user.Model.ID)
 	if profile == nil {
 		return nil, errors.New("invalid user profile")
 	}
 
 	user.Username = strings.TrimSpace(username)
 	user.Mobile = strings.TrimSpace(mobile)
-	model.GetDatabase().Save(&user)
+	alira.GetConnection().Save(&user)
 
-	profile.Name = strings.TrimSpace(fmt.Sprintf("%s %s", firstName, lastName))
 	profile.FirstName = strings.TrimSpace(firstName)
 	profile.LastName = strings.TrimSpace(lastName)
 	profile.Gender = strings.TrimSpace(gender)
-	model.GetDatabase().Save(&profile)
+	alira.GetConnection().Save(&profile)
 
 	return map[interface{}]interface{}{
 		"user_id": userid,

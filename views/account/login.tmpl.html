@@ -7,36 +7,39 @@
     </head>
     <body>
         <div class="container">
-						<h1 class="h3 mb-3 font-weight-normal text-center">Welcome to <code>Alira</code></h1>
-						{{ if .redirect }}
-            <form class="form-account" method="POST" action="/auth/login?redirect={{ .redirect }}">
+            <h1 class="h3 mb-3 font-weight-normal text-center">Welcome to <code>Alira</code></h1>
+            {{ if .error }}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <span>{{ .error }}</span>
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            {{ end }}
+			{{ if .redirect }}
+            <form class="form-account" method="POST" action="/auth/login?redirect={{ .redirect }}" autocomplete="off">
             {{ else }}
-            <form class="form-account" method="POST" action="/auth/login">
+            <form class="form-account" method="POST" action="/auth/login" autocomplete="off">
             {{ end }}
                 <div class="form-group">
                     <label for="userid" class="sr-only">UserID</label>
-                    <input type="text" class="form-control" id="userid" name="userid" placeholder="Username, email, or mobile" required>
+                    <input type="text" class="form-control" id="user_id" name="user_id" placeholder="Username, email, or mobile" required>
                 </div>
                 <div class="clearfix">
+                    <button type="submit" class="btn btn-outline-primary btn-sm float-right">Log In</button>
                     <a class="btn btn-outline-danger btn-sm float-left" href="/" role="button">Back to Home</a>
-                    <button type="submit" class="btn btn-outline-primary btn-sm float-right">Login</button>
+                </div>
+                <div class="my-2">
+                    Create an account? <a href="/account/register{{ if .redirect }}?redirect={{.redirect}}{{ end }}" class="text-decoration-none">Register</a>
                 </div>
             </form>
             <div class="text-center clear-fix">
                 <span><b>-- or --</b></span>
                 <p>Scan barcode below using <code>Alira</code> mobile</p>
                 <img src="/auth/qrcode?code={{.code}}" alt="{{.code}}">
-                <h2 style="color: green" id="message"></h2>
+                <h2 class="text-success" id="message"></h2>
             </div>
         </div>
-        {{ if .error }}
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <span>{{ .error }}</span>
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-        {{ end }}
         <script type="text/javascript">
             var socket = null;
             var uri = 'ws://' + window.location.host + '/auth/socket?code={{.code}}'

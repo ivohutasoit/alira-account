@@ -7,8 +7,8 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
-	"github.com/ivohutasoit/alira/model"
-	"github.com/ivohutasoit/alira/model/domain"
+	alira "github.com/ivohutasoit/alira"
+	"github.com/ivohutasoit/alira/database/account"
 )
 
 type TokenService struct{}
@@ -43,7 +43,7 @@ func (s *TokenService) GenerateSessionToken(args ...interface{}) (map[interface{
 		}
 	}
 
-	accessTokenClaims := &domain.AccessTokenClaims{
+	accessTokenClaims := &account.AccessTokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        uuid.New().String(),
 			IssuedAt:  now.Unix(),
@@ -57,7 +57,7 @@ func (s *TokenService) GenerateSessionToken(args ...interface{}) (map[interface{
 	atkn := jwt.NewWithClaims(jwt.GetSigningMethod(os.Getenv("HASHING_METHOD")), accessTokenClaims)
 	accessToken, _ := atkn.SignedString([]byte(os.Getenv("SECRET_KEY")))
 
-	refreshTokenClaims := &domain.RefreshTokenClaims{
+	refreshTokenClaims := &account.RefreshTokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        uuid.New().String(),
 			IssuedAt:  now.Unix(),
@@ -77,7 +77,7 @@ func (s *TokenService) GenerateSessionToken(args ...interface{}) (map[interface{
 	}, nil
 }
 
-func (s *TokenService) GetTokenInformation(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *TokenService) GetAuthenticated(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameter")
 	}
@@ -90,22 +90,22 @@ func (s *TokenService) GetTokenInformation(args ...interface{}) (map[interface{}
 		return nil, errors.New("parameter not type string")
 	}
 
-	token := &domain.Token{}
-	user := &domain.User{}
+	token := &account.Token{}
+	user := &account.User{}
 	if tokenType == "Bearer" {
-		model.GetDatabase().First(token, "access_token = ? AND valid = ?",
+		alira.GetConnection().First(token, "access_token = ? AND valid = ?",
 			tokenString, true)
 	} else {
-		model.GetDatabase().First(&token, "refresh_token = ? AND valid = ?",
+		alira.GetConnection().First(&token, "refresh_token = ? AND valid = ?",
 			tokenString, true)
 	}
-	if token.BaseModel.ID == "" {
+	if token.Model.ID == "" {
 		return nil, errors.New("invalid token")
 	}
 
-	model.GetDatabase().First(user, "id = ? AND active = ?",
+	alira.GetConnection().First(user, "id = ? AND active = ?",
 		token.UserID, true)
-	if user.BaseModel.ID == "" {
+	if user.Model.ID == "" {
 		return nil, errors.New("invalid token")
 	}
 

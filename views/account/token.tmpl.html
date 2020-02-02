@@ -8,11 +8,7 @@
     <body >
         <div class="container">
             <h1 class="h3 mb-3 font-weight-normal text-center">Token <code>Alira</code></h1>
-            {{ if .redirect }}
-            <form class="form-account" method="POST" action="/token/verify?redirect={{ .redirect }}">
-            {{ else }}
-            <form class="form-account" method="POST" action="/token/verify">
-            {{ end }}
+            <form class="form-account" method="POST" action="/token/verify{{ if .redirect }}?redirect={{.redirect}}{{ end }}" autocomplete="off">
                 <div class="form-group">
                     <input type="text" class="form-control" id="token" name="token" placeholder="Token" required>
                 </div>

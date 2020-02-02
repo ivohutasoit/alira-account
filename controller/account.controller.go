@@ -8,26 +8,29 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/ivohutasoit/alira"
 	"github.com/ivohutasoit/alira-account/constant"
 	"github.com/ivohutasoit/alira-account/service"
-	"github.com/ivohutasoit/alira/model/domain"
+	"github.com/ivohutasoit/alira/database/account"
+	"github.com/ivohutasoit/alira/messaging"
 	"github.com/ivohutasoit/alira/util"
 )
 
-type AccountController struct{}
+type Account struct{}
 
-func (ctrl *AccountController) CreateHandler(c *gin.Context) {
+func (ctrl *Account) CreateHandler(c *gin.Context) {
 	if c.Request.Method == http.MethodGet {
-		c.HTML(http.StatusOK, "account-create.tmpl.html", domain.Page)
+		c.HTML(http.StatusOK, "account-create.tmpl.html", alira.ViewData)
 	}
 
 	type Request struct {
-		Username  string `form:"username" json:"username" xml:"username"`
-		Email     string `form:"email" json:"email" xml:"email" binding:"required"`
-		Mobile    string `form:"mobile" json:"mobile" xml:"mobile" binding:"required"`
-		FirstName string `form:"first_name" json:"first_name" xml:"first_name" binding:"required"`
-		LastName  string `form:"last_name" json:"last_name" xml:"last_name" binding:"required"`
-		Active    bool   `form:"active" json:"active" xml:"active"`
+		Username     string `form:"username" json:"username" xml:"username"`
+		Email        string `form:"email" json:"email" xml:"email" binding:"required"`
+		Mobile       string `form:"mobile" json:"mobile" xml:"mobile" binding:"required"`
+		FirstName    string `form:"first_name" json:"first_name" xml:"first_name" binding:"required"`
+		LastName     string `form:"last_name" json:"last_name" xml:"last_name" binding:"required"`
+		Active       bool   `form:"active" json:"active" xml:"active"`
+		CustomerUser bool   `form:"customer_user" json:"customer_user" xml:"customer_user"`
 	}
 
 	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
@@ -41,31 +44,77 @@ func (ctrl *AccountController) CreateHandler(c *gin.Context) {
 			})
 		}
 	}
-	acctService := &service.AccountService{}
-	data, err := acctService.Create(req.Username, req.Email, req.Mobile, req.FirstName, req.LastName)
+	as := &service.Account{}
+	data, err := as.Create(req.Username, req.Email, req.Mobile, req.FirstName, req.LastName, req.Active, req.CustomerUser)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"code":   http.StatusBadRequest,
 			"status": http.StatusText(http.StatusBadRequest),
 			"error":  err.Error(),
 		})
+		return
 	}
-	user := data["user"].(*domain.User)
-	if data["status"].(string) == "SUCCESS" {
-		if api {
-			c.JSON(http.StatusCreated, gin.H{
-				"code":    http.StatusCreated,
-				"status":  http.StatusText(http.StatusCreated),
-				"message": "Profile has been created",
-				"data": map[string]string{
-					"user_id": user.BaseModel.ID,
-				},
-			})
-		}
+	user := data["user"].(*account.User)
+	profile := data["profile"].(*account.Profile)
+	userProfile := &messaging.UserProfile{
+		ID:            user.Model.ID,
+		Username:      user.Username,
+		Email:         user.Email,
+		PrimaryMobile: user.Mobile,
+		Active:        user.Active,
+		FirstName:     profile.FirstName,
+		MiddleName:    profile.MiddleName,
+		LastName:      profile.LastName,
+		Avatar:        user.Avatar,
+	}
+	if api {
+		c.JSON(http.StatusCreated, gin.H{
+			"code":    http.StatusCreated,
+			"status":  http.StatusText(http.StatusCreated),
+			"message": "User has been created",
+			"data":    userProfile,
+		})
+		return
 	}
 }
 
-func (ctrl *AccountController) DetailHandler(c *gin.Context) {
+func (ctrl *Account) ChangePinHandler(c *gin.Context) {
+	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
+	type Request struct {
+		Pin string `form:"pin" json:"pin" xml:"pin" binding:"required,min=6"`
+	}
+	var req Request
+	if api {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"code":   http.StatusBadRequest,
+				"status": http.StatusText(http.StatusBadRequest),
+				"error":  err.Error(),
+			})
+		}
+	}
+	as := &service.Account{}
+	data, err := as.ChangeUserPin(c.GetString("user_id"), req.Pin)
+	if err != nil {
+		if api {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"code":   http.StatusBadRequest,
+				"status": http.StatusText(http.StatusBadRequest),
+				"error":  err.Error(),
+			})
+			return
+		}
+	}
+	if api {
+		c.JSON(http.StatusCreated, gin.H{
+			"code":    http.StatusAccepted,
+			"status":  http.StatusText(http.StatusAccepted),
+			"message": data["message"].(string),
+		})
+	}
+}
+
+func (ctrl *Account) DetailHandler(c *gin.Context) {
 	var id string
 	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
 	if api {
@@ -74,8 +123,8 @@ func (ctrl *AccountController) DetailHandler(c *gin.Context) {
 		id = c.Query("id")
 	}
 
-	accountService := &service.AccountService{}
-	data, err := accountService.Get(id)
+	as := &service.Account{}
+	data, err := as.Get(id)
 	if err != nil {
 		if api {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -87,19 +136,24 @@ func (ctrl *AccountController) DetailHandler(c *gin.Context) {
 		return
 	}
 
-	user := data["user"].(*domain.User)
-	profile := data["profile"].(*domain.Profile)
-	fmt.Println(user.Username)
+	user := data["user"].(*account.User)
+	profile := data["profile"].(*account.Profile)
+	userProfile := &messaging.UserProfile{
+		ID:            user.Model.ID,
+		Username:      user.Username,
+		Email:         user.Email,
+		PrimaryMobile: user.Mobile,
+		Active:        user.Active,
+		FirstName:     profile.FirstName,
+		MiddleName:    profile.MiddleName,
+		LastName:      profile.LastName,
+		Avatar:        user.Avatar,
+	}
 	if api {
 		c.JSON(http.StatusOK, gin.H{
 			"code":   http.StatusOK,
 			"status": http.StatusText(http.StatusOK),
-			"data": map[string]string{
-				"username": user.Username,
-				"email":    user.Email,
-				"mobile":   user.Mobile,
-				"name":     fmt.Sprintf("%s %s", profile.FirstName, profile.LastName),
-			},
+			"data":   userProfile,
 		})
 	}
 }
@@ -111,8 +165,11 @@ func AccountViewHandler(c *gin.Context) {
 }
 
 func RegisterHandler(c *gin.Context) {
+	redirect := c.Query("redirect")
 	if c.Request.Method == http.MethodGet {
-		c.HTML(http.StatusOK, constant.RegisterPage, nil)
+		c.HTML(http.StatusOK, constant.RegisterPage, gin.H{
+			"redirect": redirect,
+		})
 		return
 	}
 
@@ -135,7 +192,8 @@ func RegisterHandler(c *gin.Context) {
 	} else {
 		if err := c.ShouldBind(&request); err != nil {
 			c.HTML(http.StatusBadRequest, constant.RegisterPage, gin.H{
-				"error": err.Error(),
+				"redirect": redirect,
+				"error":    err.Error(),
 			})
 			return
 		}
@@ -155,13 +213,14 @@ func RegisterHandler(c *gin.Context) {
 
 // RegisterByEmailHandler for user registration using email address
 func RegisterByEmailHandler(c *gin.Context) {
+	redirect := c.Query("redirect")
 	if c.Request.Method == http.MethodGet {
 		c.HTML(http.StatusOK, constant.RegisterPage, nil)
 		return
 	}
 
-	accountService := &service.AccountService{}
-	data, err := accountService.SendRegisterToken(c.GetString("userid"), "email")
+	as := &service.Account{}
+	data, err := as.SendRegisterToken(c.GetString("userid"), "email")
 	if err != nil {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.Header("Content-Type", "application/json")
@@ -172,7 +231,8 @@ func RegisterByEmailHandler(c *gin.Context) {
 			})
 		} else {
 			c.HTML(http.StatusOK, constant.RegisterPage, gin.H{
-				"error": err.Error(),
+				"redirect": redirect,
+				"error":    err.Error(),
 			})
 		}
 		return
@@ -192,9 +252,10 @@ func RegisterByEmailHandler(c *gin.Context) {
 		}
 
 		c.HTML(http.StatusOK, constant.TokenPage, gin.H{
-			"referer": data["referer"].(string),
-			"purpose": data["purpose"].(string),
-			"message": data["message"].(string),
+			"redirect": redirect,
+			"referer":  data["referer"].(string),
+			"purpose":  data["purpose"].(string),
+			"message":  data["message"].(string),
 		})
 	}
 }
@@ -211,8 +272,9 @@ func ProfileHandler(c *gin.Context) {
 	if action == "" {
 		action = "view"
 	}
-	accService := &service.AccountService{}
-	data, err := accService.Get(c.GetString("user_id"))
+	fmt.Println(c.GetString("user_id"))
+	as := &service.Account{}
+	data, err := as.Get(c.GetString("user_id"))
 	if err != nil {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.Header("Content-Type", "application/json")
@@ -222,6 +284,7 @@ func ProfileHandler(c *gin.Context) {
 				"error":  err.Error(),
 			})
 		} else {
+			fmt.Println(err.Error())
 			c.HTML(http.StatusBadRequest, constant.ProfilePage, gin.H{
 				"user_id": c.GetString("user_id"),
 				"error":   err.Error(),
@@ -230,8 +293,8 @@ func ProfileHandler(c *gin.Context) {
 		return
 	}
 
-	user := data["user"].(*domain.User)
-	profile := data["profile"].(*domain.Profile)
+	user := data["user"].(*account.User)
+	profile := data["profile"].(*account.Profile)
 	if c.Request.Method == http.MethodGet {
 		if user.Username == "" {
 			action = "complete"
@@ -282,7 +345,7 @@ func ProfileHandler(c *gin.Context) {
 			return
 		}
 	}
-	data, err = accService.SaveProfile(c.GetString("user_id"), req.Username, req.Mobile, req.FirstName, req.LastName, req.Gender)
+	data, err = as.SaveProfile(c.GetString("user_id"), req.Username, req.Mobile, req.FirstName, req.LastName, req.Gender)
 	if err != nil {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {
 			c.Header("Content-Type", "application/json")
