@@ -24,12 +24,12 @@ func (s *Auth) AuthenticateUser(args ...interface{}) (map[interface{}]interface{
 		return nil, errors.New("plain text parameter not type string")
 	}
 	user := &account.User{}
-	alira.GetConnection().Where("id = ? AND (active = ? OR first_time_login= ?)",
+	alira.GetConnection().Where("id = ? AND (active = ? OR first_time_login = ?)",
 		param, true, true).First(&user)
 	if user.Model.ID == "" {
 		userid := strings.ToLower(param)
-		alira.GetConnection().Where("(username = ? OR email = ? OR mobile = ?) AND (active = ? OR first_time_login= ?)",
-			userid, userid, userid, userid, true, true).First(&user)
+		alira.GetConnection().Debug().Where("(username = ? OR email = ? OR mobile = ?) AND active = ?",
+			userid, userid, userid, true).First(&user)
 	}
 	if user.Model.ID == "" {
 		return nil, errors.New("invalid login")
