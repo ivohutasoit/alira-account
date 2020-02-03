@@ -119,7 +119,7 @@ func IdentityHandler(c *gin.Context) {
 		}
 	}
 
-	service := &service.IdentityService{}
+	service := &service.Identity{}
 	data, err := service.CreateNationIdentity(req.Document, c.GetString("userid"),
 		req.NationID, req.Fullname, strings.ToUpper(req.Country), date)
 	if err != nil {

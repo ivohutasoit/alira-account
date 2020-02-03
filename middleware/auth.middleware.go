@@ -125,129 +125,131 @@ func (m *Auth) TokenRequired(args ...interface{}) gin.HandlerFunc {
 		currentPath := c.Request.URL.Path
 		urlAPI := os.Getenv("URL_API")
 		except := os.Getenv("API_EXCEPT")
+		exception := false
 		if except != "" {
 			excepts := strings.Split(except, ";")
-
 			for _, value := range excepts {
 				if c.Request.Method == http.MethodGet {
 					if strings.Index(currentPath, value) > -1 {
-						c.Next()
-						return
+						exception = true
+						break
 					}
-				} else if currentPath == strings.TrimSpace(fmt.Sprintf("%s%s", urlAPI, value)) {
-					c.Next()
-					return
+				} else if strings.TrimSpace(currentPath) == strings.TrimSpace(fmt.Sprintf("%s%s", urlAPI, value)) {
+					exception = true
+					break
 				}
 			}
 		}
 
-		authorization := c.Request.Header.Get("Authorization")
+		if !exception {
+			authorization := c.Request.Header.Get("Authorization")
 
-		if authorization == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":   http.StatusUnauthorized,
-				"status": http.StatusText(http.StatusUnauthorized),
-				"error":  "missing authorization token",
-			})
-			return
-		}
-
-		tokens := strings.Split(authorization, " ")
-		if len(tokens) != 2 {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":   http.StatusUnauthorized,
-				"status": http.StatusText(http.StatusUnauthorized),
-				"error":  "invalid token",
-			})
-			return
-		}
-
-		var claims jwt.Claims
-		if tokens[0] == "Bearer" {
-			claims = &account.AccessTokenClaims{}
-		} else if tokens[0] == "Refresh" {
-			if currentPath != "/api/alpha/auth/refresh" {
+			if authorization == "" {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"code":   http.StatusUnauthorized,
 					"status": http.StatusText(http.StatusUnauthorized),
-					"error":  "invalid refresh uri",
+					"error":  "missing authorization token",
 				})
 				return
 			}
-			claims = &account.RefreshTokenClaims{}
-		} else {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":   http.StatusUnauthorized,
-				"status": http.StatusText(http.StatusUnauthorized),
-				"error":  "invalid token indentifier",
-			})
-			return
-		}
 
-		tokenString := tokens[1]
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-			return []byte(os.Getenv("SECRET_KEY")), nil
-		})
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":   http.StatusUnauthorized,
-				"status": http.StatusText(http.StatusUnauthorized),
-				"error":  err.Error(),
-			})
-			return
-		}
-
-		if !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":   http.StatusUnauthorized,
-				"status": http.StatusText(http.StatusUnauthorized),
-				"error":  "invalid token",
-			})
-			return
-		}
-		if tokens[0] == "Refresh" {
-			if claims.(*account.RefreshTokenClaims).Sub != 1 {
+			tokens := strings.Split(authorization, " ")
+			if len(tokens) != 2 {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"code":   http.StatusUnauthorized,
 					"status": http.StatusText(http.StatusUnauthorized),
-					"error":  "invalid refresh token",
+					"error":  "invalid token",
 				})
 				return
 			}
-		}
 
-		sessionToken := &account.Token{}
-		if tokens[0] == "Bearer" {
-			alira.GetConnection().Where("access_token = ? AND valid = ?",
-				tokenString, true).First(sessionToken)
-		} else if tokens[0] == "Refresh" {
-			alira.GetConnection().Where("refresh_token = ? AND valid = ?",
-				tokenString, true).First(sessionToken)
-		}
-		if sessionToken.Model.ID == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":   http.StatusUnauthorized,
-				"status": http.StatusText(http.StatusUnauthorized),
-				"error":  "invalid token",
+			var claims jwt.Claims
+			if tokens[0] == "Bearer" {
+				claims = &account.AccessTokenClaims{}
+			} else if tokens[0] == "Refresh" {
+				if currentPath != "/api/alpha/auth/refresh" {
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+						"code":   http.StatusUnauthorized,
+						"status": http.StatusText(http.StatusUnauthorized),
+						"error":  "invalid refresh uri",
+					})
+					return
+				}
+				claims = &account.RefreshTokenClaims{}
+			} else {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"code":   http.StatusUnauthorized,
+					"status": http.StatusText(http.StatusUnauthorized),
+					"error":  "invalid token indentifier",
+				})
+				return
+			}
+
+			tokenString := tokens[1]
+			token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+				return []byte(os.Getenv("SECRET_KEY")), nil
 			})
-			return
-		}
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"code":   http.StatusUnauthorized,
+					"status": http.StatusText(http.StatusUnauthorized),
+					"error":  err.Error(),
+				})
+				return
+			}
 
-		user := &account.User{}
-		alira.GetConnection().Where("id = ? AND active = ?",
-			sessionToken.UserID, true).First(user)
-		if user.Model.ID == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":   http.StatusUnauthorized,
-				"status": http.StatusText(http.StatusUnauthorized),
-				"error":  "invalid token",
-			})
-			return
-		}
+			if !token.Valid {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"code":   http.StatusUnauthorized,
+					"status": http.StatusText(http.StatusUnauthorized),
+					"error":  "invalid token",
+				})
+				return
+			}
+			if tokens[0] == "Refresh" {
+				if claims.(*account.RefreshTokenClaims).Sub != 1 {
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+						"code":   http.StatusUnauthorized,
+						"status": http.StatusText(http.StatusUnauthorized),
+						"error":  "invalid refresh token",
+					})
+					return
+				}
+			}
 
-		c.Set("user_id", user.Model.ID)
-		if tokens[0] == "Refresh" {
-			c.Set("sub", claims.(*account.RefreshTokenClaims).Sub)
+			sessionToken := &account.Token{}
+			if tokens[0] == "Bearer" {
+				alira.GetConnection().Where("access_token = ? AND valid = ?",
+					tokenString, true).First(sessionToken)
+			} else if tokens[0] == "Refresh" {
+				alira.GetConnection().Where("refresh_token = ? AND valid = ?",
+					tokenString, true).First(sessionToken)
+			}
+			if sessionToken.Model.ID == "" {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"code":   http.StatusUnauthorized,
+					"status": http.StatusText(http.StatusUnauthorized),
+					"error":  "invalid token",
+				})
+				return
+			}
+
+			user := &account.User{}
+			alira.GetConnection().Where("id = ? AND active = ?",
+				sessionToken.UserID, true).First(user)
+			if user.Model.ID == "" {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"code":   http.StatusUnauthorized,
+					"status": http.StatusText(http.StatusUnauthorized),
+					"error":  "invalid token",
+				})
+				return
+			}
+
+			c.Set("user_id", user.Model.ID)
+			if tokens[0] == "Refresh" {
+				c.Set("sub", claims.(*account.RefreshTokenClaims).Sub)
+			}
 		}
 		c.Next()
 	}

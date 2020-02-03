@@ -10,9 +10,9 @@ import (
 	"github.com/ivohutasoit/alira/database/account"
 )
 
-type IdentityService struct{}
+type Identity struct{}
 
-func (s *IdentityService) CreateNationIdentity(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Identity) CreateNationIdentity(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 1 {
 		return nil, errors.New("not enough parameters")
 	}

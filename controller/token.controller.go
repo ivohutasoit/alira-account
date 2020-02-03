@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -14,9 +15,9 @@ import (
 	"github.com/ivohutasoit/alira/util"
 )
 
-type TokenController struct{}
+type Token struct{}
 
-func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
+func (ctrl *Token) VerifyHandler(c *gin.Context) {
 	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
 	if c.Request.Method == http.MethodPost {
 		type Request struct {
@@ -80,9 +81,15 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 			var uri string
 			if redirect != "" {
 				uri, _ = util.Decrypt(redirect, os.Getenv("SECRET_KEY"))
+				if strings.Contains(uri, "?") {
+					uri = fmt.Sprintf("%s&callback=%s", uri, data["token_id"].(string))
+				} else {
+					uri = fmt.Sprintf("%s?callback=%s", uri, data["token_id"].(string))
+				}
 			} else {
 				uri, _ = util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
 			}
+			fmt.Println(uri)
 			if data["profile"].(string) == "required" {
 				uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/account/profile?action=complete", false)
 				c.Redirect(http.StatusMovedPermanently, uri)
@@ -127,7 +134,52 @@ func (ctrl *TokenController) VerifyHandler(c *gin.Context) {
 	}
 }
 
-func (ctrl *TokenController) InfoHandler(c *gin.Context) {
+func (ctrl *Token) CallbackHandler(c *gin.Context) {
+	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
+	type Request struct {
+		AppID     string `form:"app_id" json:"app_id" xml:"app_id"`
+		AppSecret string `form:"app_secret" json:"app_secret" xml:"app_secret"`
+		Token     string `form:"token" json:"token" xml:"token" binding:"required"`
+	}
+	var req Request
+	if api {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"code":   http.StatusBadRequest,
+				"status": http.StatusText(http.StatusBadRequest),
+				"error":  err.Error(),
+			})
+			return
+		}
+	}
+
+	tokenService := &service.Token{}
+	data, err := tokenService.Get(req.Token)
+	if err != nil {
+		if api {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"code":   http.StatusBadRequest,
+				"status": http.StatusText(http.StatusBadRequest),
+				"error":  err.Error(),
+			})
+			return
+		}
+	}
+
+	if api {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    http.StatusOK,
+			"status":  http.StatusText(http.StatusOK),
+			"message": "Authenticated session token",
+			"data": map[string]string{
+				"access_token":  data["access_token"].(string),
+				"refresh_token": data["refresh_token"].(string),
+			},
+		})
+	}
+}
+
+func (ctrl *Token) InfoHandler(c *gin.Context) {
 	// 1. Check whitelist url
 	/*data := os.Getenv("IP_WHITELIST")
 	if data == "" {
@@ -179,7 +231,7 @@ func (ctrl *TokenController) InfoHandler(c *gin.Context) {
 		}
 	}
 
-	tokenService := &service.TokenService{}
+	tokenService := &service.Token{}
 	data, err := tokenService.GetAuthenticated(req.Type, req.Token)
 	if err != nil {
 		if strings.Contains(c.Request.URL.Path, os.Getenv("URL_API")) {

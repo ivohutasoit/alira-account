@@ -57,10 +57,10 @@ func main() {
 	router.LoadHTMLGlob("views/*/*.tmpl.html")
 	router.Static("/static", "static")
 
-	web := &route.WebRoute{}
+	web := &route.Web{}
 	web.Initialize(router)
 
-	api := &route.ApiRoute{}
+	api := &route.API{}
 	api.Initialize(router)
 
 	router.Run(":" + port)

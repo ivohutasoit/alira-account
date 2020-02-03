@@ -278,7 +278,7 @@ func (ac *Account) ActivateRegistration(args ...interface{}) (map[interface{}]in
 	now := time.Now()
 	expired := now.AddDate(0, 0, 1)
 
-	ts := &TokenService{}
+	ts := &Token{}
 	data, err := ts.GenerateSessionToken(user.Model.ID, now, expired)
 	if err != nil {
 		return nil, err

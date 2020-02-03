@@ -217,7 +217,7 @@ func (s *Auth) VerifyToken(args ...interface{}) (map[interface{}]interface{}, er
 	now := time.Now()
 	expired := now.AddDate(0, 0, 1)
 
-	ts := &TokenService{}
+	ts := &Token{}
 	data, err := ts.GenerateSessionToken(user.Model.ID, now, expired)
 	if err != nil {
 		return nil, err
@@ -240,6 +240,7 @@ func (s *Auth) VerifyToken(args ...interface{}) (map[interface{}]interface{}, er
 		alira.GetConnection().Save(&user)
 	}
 
+	data["token_id"] = sessionToken.Model.ID
 	data["user"] = user
 	if user.Username == "" {
 		data["profile"] = "required"
@@ -282,7 +283,7 @@ func (s *Auth) GenerateRefreshToken(args ...interface{}) (map[interface{}]interf
 	now := time.Now()
 	expired := now.AddDate(0, 0, 1)
 
-	ts := &TokenService{}
+	ts := &Token{}
 	data, err := ts.GenerateSessionToken(userid, now, expired)
 	if err != nil {
 		return nil, err

@@ -6,9 +6,9 @@ import (
 	"github.com/ivohutasoit/alira-account/middleware"
 )
 
-type WebRoute struct{}
+type Web struct{}
 
-func (route *WebRoute) Initialize(r *gin.Engine) {
+func (route *Web) Initialize(r *gin.Engine) {
 	authMiddleware := &middleware.Auth{}
 	web := r.Group("")
 	web.Use(authMiddleware.SessionRequired())
@@ -32,7 +32,7 @@ func (route *WebRoute) Initialize(r *gin.Engine) {
 			webacct.GET("/profile", controller.ProfileHandler)
 			webacct.POST("/profile", controller.ProfileHandler)
 		}
-		tokenController := &controller.TokenController{}
+		tokenController := &controller.Token{}
 		webtoken := web.Group("/token")
 		{
 			webtoken.POST("/verify", tokenController.VerifyHandler)

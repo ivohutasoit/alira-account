@@ -6,9 +6,9 @@ import (
 	"github.com/ivohutasoit/alira-account/middleware"
 )
 
-type ApiRoute struct{}
+type API struct{}
 
-func (route *ApiRoute) Initialize(r *gin.Engine) {
+func (route *API) Initialize(r *gin.Engine) {
 	authMiddleware := &middleware.Auth{}
 	api := r.Group("/api/alpha")
 	api.Use(authMiddleware.TokenRequired())
@@ -31,11 +31,12 @@ func (route *ApiRoute) Initialize(r *gin.Engine) {
 			apiaccount.POST("/profile", controller.ProfileHandler)
 			apiaccount.POST("/identity", controller.IdentityHandler)
 		}
-		token := &controller.TokenController{}
+		token := &controller.Token{}
 		apitoken := api.Group("/token")
 		{
-			apitoken.POST("info", token.InfoHandler)
-			apitoken.POST("verify", token.VerifyHandler)
+			apitoken.POST("/callback", token.CallbackHandler)
+			apitoken.POST("/info", token.InfoHandler)
+			apitoken.POST("/verify", token.VerifyHandler)
 		}
 	}
 }

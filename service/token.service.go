@@ -11,9 +11,29 @@ import (
 	"github.com/ivohutasoit/alira/database/account"
 )
 
-type TokenService struct{}
+type Token struct{}
 
-func (s *TokenService) GenerateSessionToken(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Token) Get(args ...interface{}) (map[interface{}]interface{}, error) {
+	if len(args) < 1 {
+		return nil, errors.New("not enough parameters")
+	}
+	id, ok := args[0].(string)
+	if !ok {
+		return nil, errors.New("parameter not type string")
+	}
+	token := &account.Token{}
+	alira.GetConnection().First(token, "id = ? AND valid = ?",
+		id, true)
+	if token.Model.ID == "" {
+		return nil, errors.New("invalid token")
+	}
+	return map[interface{}]interface{}{
+		"access_token":  token.AccessToken,
+		"refresh_token": token.RefreshToken,
+	}, nil
+}
+
+func (s *Token) GenerateSessionToken(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 3 {
 		return nil, errors.New("not enough parameters")
 	}
@@ -77,7 +97,7 @@ func (s *TokenService) GenerateSessionToken(args ...interface{}) (map[interface{
 	}, nil
 }
 
-func (s *TokenService) GetAuthenticated(args ...interface{}) (map[interface{}]interface{}, error) {
+func (s *Token) GetAuthenticated(args ...interface{}) (map[interface{}]interface{}, error) {
 	if len(args) < 2 {
 		return nil, errors.New("not enough parameter")
 	}
