@@ -103,9 +103,9 @@ func (ctrl *Auth) LoginHandler(c *gin.Context) {
 			"status":  http.StatusText(http.StatusOK),
 			"message": "Please enter your pin",
 			"data": map[string]interface{}{
-				"user_id":      user.Model.ID,
-				"pin_required": user.UsePin,
-				"purpose":      data["purpose"].(string),
+				"user_id": user.Model.ID,
+				"use_pin": user.UsePin,
+				"purpose": data["purpose"].(string),
 			},
 		})
 		return
@@ -124,93 +124,6 @@ func (ctrl *Auth) LoginHandler(c *gin.Context) {
 		"redirect": redirect,
 		"error":    "permission denied",
 	})
-}
-
-// LoginHandler manages login request to show page, form action and api
-func LoginHandler(c *gin.Context) {
-	redirect := c.Query("redirect")
-
-	auth := &service.Auth{}
-	socket, err := auth.GenerateLoginSocket(redirect)
-	if err != nil {
-		fmt.Printf("Error: %s", err.Error())
-	}
-
-	if c.Request.Method == http.MethodGet {
-		c.HTML(http.StatusOK, constant.LoginPage, gin.H{
-			"code":     socket["code"].(string),
-			"redirect": redirect,
-		})
-		return
-	}
-
-	type Request struct {
-		UserID string `form:"userid" json:"userid" xml:"userid"  binding:"required"`
-	}
-
-	api := strings.Contains(c.Request.URL.Path, os.Getenv("URL_API"))
-	var req Request
-	if api {
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.Header("Content-Type", "application/json")
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":   400,
-				"status": "Bad Request",
-				"error":  err.Error(),
-			})
-			return
-		}
-	} else {
-		if err := c.ShouldBind(&req); err != nil {
-			c.HTML(http.StatusUnauthorized, constant.IndexPage, gin.H{
-				"code":     socket["code"].(string),
-				"redirect": redirect,
-				"error":    err.Error(),
-			})
-			return
-		}
-	}
-
-	data, err := auth.SendLoginToken(req.UserID)
-	if err != nil {
-		if api {
-			c.Header("Content-Type", "application/json")
-			c.JSON(http.StatusBadRequest, gin.H{
-				"code":   400,
-				"status": "Bad Request",
-				"error":  err.Error(),
-			})
-			return
-		}
-		c.HTML(http.StatusBadRequest, constant.LoginPage, gin.H{
-			"code":     socket["code"].(string),
-			"redirect": redirect,
-			"error":    err.Error(),
-		})
-		return
-	}
-	status := data["status"].(string)
-
-	if status == "SUCCESS" {
-		if api {
-			c.Header("Content-Type", "application/json")
-			c.JSON(http.StatusOK, gin.H{
-				"code":    200,
-				"status":  "OK",
-				"message": data["message"].(string),
-				"data": map[string]string{
-					"referer": data["referer"].(string),
-				},
-			})
-			return
-		}
-		c.HTML(http.StatusOK, constant.TokenPage, gin.H{
-			"referer":  data["referer"].(string),
-			"redirect": redirect,
-			"purpose":  data["purpose"].(string),
-		})
-		return
-	}
 }
 
 func RefreshTokenHandler(c *gin.Context) {
