@@ -19,7 +19,7 @@ func (m *Callback) ValidateSession(args ...interface{}) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
 		accessToken := session.Get("access_token")
-		if accessToken != "" {
+		if accessToken != nil {
 			token := &account.Token{}
 			alira.GetConnection().Where("access_token = ? AND valid = ?",
 				accessToken, true).First(&token)
@@ -33,6 +33,7 @@ func (m *Callback) ValidateSession(args ...interface{}) gin.HandlerFunc {
 						uri = fmt.Sprintf("%s?callback=%s", uri, token.Model.ID)
 					}
 					c.Redirect(http.StatusMovedPermanently, uri)
+					c.Abort()
 					return
 				}
 			}

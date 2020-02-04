@@ -65,7 +65,6 @@ func (m *Auth) SessionRequired(args ...interface{}) gin.HandlerFunc {
 			return
 		}
 		if accessToken != nil {
-			fmt.Println(accessToken)
 			claims := &account.AccessTokenClaims{}
 			token, err := jwt.ParseWithClaims(accessToken.(string), claims, func(token *jwt.Token) (interface{}, error) {
 				return []byte(os.Getenv("SECRET_KEY")), nil
