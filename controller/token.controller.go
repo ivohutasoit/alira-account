@@ -89,7 +89,7 @@ func (ctrl *Token) VerifyHandler(c *gin.Context) {
 			} else {
 				uri, _ = util.GenerateUrl(c.Request.TLS, c.Request.Host, "/", false)
 			}
-			fmt.Println(uri)
+
 			if data["profile"].(string) == "required" {
 				uri, _ := util.GenerateUrl(c.Request.TLS, c.Request.Host, "/account/profile?action=complete", false)
 				c.Redirect(http.StatusMovedPermanently, uri)

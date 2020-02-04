@@ -10,6 +10,7 @@ type Web struct{}
 
 func (route *Web) Initialize(r *gin.Engine) {
 	authMiddleware := &middleware.Auth{}
+	callbackMiddleware := &middleware.Callback{}
 	web := r.Group("")
 	web.Use(authMiddleware.SessionRequired())
 	{
@@ -19,7 +20,7 @@ func (route *Web) Initialize(r *gin.Engine) {
 		webauth := web.Group("/auth")
 		{
 			auth := &controller.Auth{}
-			webauth.GET("/login", auth.LoginHandler)
+			webauth.GET("/login", callbackMiddleware.ValidateSession(), auth.LoginHandler)
 			webauth.POST("/login", auth.LoginHandler)
 			webauth.GET("/qrcode", controller.GenerateImageQrcodeHandler)
 			webauth.GET("/socket", controller.StartSocketHandler)
